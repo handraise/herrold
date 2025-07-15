@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-3xl font-bold text-gray-800 mb-6">Test Runner</h1>
+
+  <button id="run-btn" onclick="runTests()" 
+    class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed 
+           text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 mb-6">
+    Run Tests
+  </button>
+
+  <h2 class="text-2xl font-semibold text-gray-700 mb-4">Test Cases</h2>
+  <div id="test-cases" class="space-y-4">Loading...</div>
+</div>
+
+<script>
+let testCases = [];
+
+async function loadTestCases() {
+  try {
+    const res = await fetch('/test-cases');
+    testCases = await res.json();
+    renderTestCases();
+  } catch (err) {
+    document.getElementById('test-cases').innerHTML = '<div>Error loading test cases</div>';
+  }
+}
+
+function renderTestCases(results = []) {
+  const container = document.getElementById('test-cases');
+  container.innerHTML = testCases.map(tc => {
+    const result = results.find(r => r.name === tc.name);
+    let statusHtml = '';
+    let errorHtml = '';
+    
+    if (result) {
+      const statusClasses = {
+        passed: 'bg-green-100 text-green-800',
+        failed: 'bg-red-100 text-red-800',
+        running: 'bg-blue-100 text-blue-800'
+      };
+      const statusClass = statusClasses[result.status] || statusClasses.failed;
+      statusHtml = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusClass}">
+                      ${result.status.toUpperCase()}
+                    </span>`;
+      if (result.duration) {
+        statusHtml += `<span class="text-xs text-gray-500 ml-2">${result.duration}ms</span>`;
+      }
+      if (result.error) {
+        errorHtml = `<div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                       <pre class="text-xs text-red-700 whitespace-pre-wrap font-mono">${result.error}</pre>
+                     </div>`;
+      }
+    }
+    
+    return `
+      <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="text-lg font-semibold text-gray-900">${tc.name}</div>
+            <div class="text-sm text-gray-600 mt-1">${tc.description}</div>
+          </div>
+          <div class="flex items-center space-x-2">${statusHtml}</div>
+        </div>
+        ${errorHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+async function runTests() {
+  const button = document.getElementById('run-btn');
+  button.disabled = true;
+  button.textContent = 'Running...';
+  
+  // Show running status
+  renderTestCases(testCases.map(tc => ({ name: tc.name, status: 'running' })));
+  
+  try {
+    const res = await fetch('/run-tests');
+    const results = await res.json();
+    renderTestCases(results);
+  } catch (err) {
+    alert('Error running tests: ' + err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Run Tests';
+  }
+}
+
+window.onload = loadTestCases;
+</script>
+</div>
+</body>
+</html>
