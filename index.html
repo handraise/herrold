@@ -57,6 +57,8 @@ function renderTestCases(results = []) {
       }
     }
     
+    const testId = encodeURIComponent(tc.name);
+    
     return `
       <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
         <div class="flex justify-between items-start">
@@ -64,7 +66,14 @@ function renderTestCases(results = []) {
             <div class="text-lg font-semibold text-gray-900">${tc.name}</div>
             <div class="text-sm text-gray-600 mt-1">${tc.description}</div>
           </div>
-          <div class="flex items-center space-x-2">${statusHtml}</div>
+          <div class="flex items-center space-x-3">
+            <button onclick="runSingleTest('${testId}')" id="btn-${testId}"
+              class="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed 
+                     text-white text-xs font-medium py-1 px-3 rounded transition-colors duration-200">
+              Run
+            </button>
+            <div class="flex items-center space-x-2">${statusHtml}</div>
+          </div>
         </div>
         ${errorHtml}
       </div>
@@ -72,10 +81,50 @@ function renderTestCases(results = []) {
   }).join('');
 }
 
+async function runSingleTest(testId) {
+  const testName = decodeURIComponent(testId);
+  const button = document.getElementById(`btn-${testId}`);
+  
+  button.disabled = true;
+  button.textContent = 'Running...';
+  
+  // Show running status for this test
+  const currentResults = getCurrentResults();
+  const runningResult = { name: testName, status: 'running' };
+  const updatedResults = currentResults.filter(r => r.name !== testName).concat(runningResult);
+  renderTestCases(updatedResults);
+  
+  try {
+    const res = await fetch(`/run-test/${testId}`);
+    const result = await res.json();
+    
+    // Update results with the new result
+    const finalResults = currentResults.filter(r => r.name !== testName).concat(result);
+    renderTestCases(finalResults);
+  } catch (err) {
+    alert('Error running test: ' + err.message);
+    renderTestCases(currentResults);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Run';
+  }
+}
+
+function getCurrentResults() {
+  // Extract current results from the DOM or maintain in memory
+  return window.lastResults || [];
+}
+
 async function runTests() {
   const button = document.getElementById('run-btn');
   button.disabled = true;
   button.textContent = 'Running...';
+  
+  // Disable all individual run buttons
+  testCases.forEach(tc => {
+    const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
+    if (btn) btn.disabled = true;
+  });
   
   // Show running status
   renderTestCases(testCases.map(tc => ({ name: tc.name, status: 'running' })));
@@ -83,12 +132,19 @@ async function runTests() {
   try {
     const res = await fetch('/run-tests');
     const results = await res.json();
+    window.lastResults = results;
     renderTestCases(results);
   } catch (err) {
     alert('Error running tests: ' + err.message);
   } finally {
     button.disabled = false;
     button.textContent = 'Run Tests';
+    
+    // Re-enable all individual run buttons
+    testCases.forEach(tc => {
+      const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
+      if (btn) btn.disabled = false;
+    });
   }
 }
 

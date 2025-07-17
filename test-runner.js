@@ -57,4 +57,4 @@ async function runTests() {
   return results;
 }
 
-module.exports = { runTests, getTestCases };
+module.exports = { runTests, runTest, getTestCases };
