@@ -5,12 +5,12 @@
 </head>
 <body class="bg-gray-100 p-6">
 <div class="max-w-4xl mx-auto">
-  <h1 class="text-3xl font-bold text-gray-800 mb-6">Test Runner</h1>
+  <h1 class="text-3xl font-bold text-gray-800 mb-6">Herrold - The Test Runner</h1>
 
   <button id="run-btn" onclick="runTests()" 
     class="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed 
            text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 mb-6">
-    Run Tests
+    Run All Tests
   </button>
 
   <h2 class="text-2xl font-semibold text-gray-700 mb-4">Test Cases</h2>
@@ -84,8 +84,15 @@ function renderTestCases(results = []) {
 async function runSingleTest(testId) {
   const testName = decodeURIComponent(testId);
   const button = document.getElementById(`btn-${testId}`);
+  const runAllButton = document.getElementById('run-btn');
   
-  button.disabled = true;
+  // Disable all buttons during single test execution
+  runAllButton.disabled = true;
+  testCases.forEach(tc => {
+    const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
+    if (btn) btn.disabled = true;
+  });
+  
   button.textContent = 'Running...';
   
   // Show running status for this test
@@ -100,13 +107,21 @@ async function runSingleTest(testId) {
     
     // Update results with the new result
     const finalResults = currentResults.filter(r => r.name !== testName).concat(result);
+    window.lastResults = finalResults;
     renderTestCases(finalResults);
   } catch (err) {
     alert('Error running test: ' + err.message);
     renderTestCases(currentResults);
   } finally {
-    button.disabled = false;
-    button.textContent = 'Run';
+    // Re-enable all buttons
+    runAllButton.disabled = false;
+    testCases.forEach(tc => {
+      const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Run';
+      }
+    });
   }
 }
 

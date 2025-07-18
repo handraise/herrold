@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",
-    "@types/node": "^24.2.1"
+    "@types/node": "^24.2.1",
+    "prettier": "^3.0.0"
   }
 }
