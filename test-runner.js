@@ -24,6 +24,17 @@ const testCases = [
       await page.waitForTimeout(500);
       await browser.close();
     }
+  },
+  {
+    name: 'Handraise Staging',
+    description: 'Tests that Handraise staging app loads successfully',
+    test: async () => {
+      const browser = await chromium.launch();
+      const page = await browser.newPage();
+      await page.goto('https://stage-app.handraise.com');
+      await page.waitForLoadState('networkidle');
+      await browser.close();
+    }
   }
 ];
 
