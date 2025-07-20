@@ -6,3 +6,8 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 .aider*
+
+# Environment variables
+.env
+*.log
+.DS_Store
