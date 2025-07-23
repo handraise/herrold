@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "nodemon server.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@playwright/test": "^1.54.2",
     "@types/node": "^24.2.1",
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "nodemon": "^3.0.1"
   }
 }

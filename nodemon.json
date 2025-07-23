@@ -1,0 +1,6 @@
+{
+  "watch": ["server.js", "test-runner.js", "index.html"],
+  "ext": "js,html,json",
+  "ignore": ["node_modules", ".env"],
+  "delay": "1000"
+}
