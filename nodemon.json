@@ -1,5 +1,5 @@
 {
-  "watch": ["server.js", "test-runner.js", "index.html"],
+  "watch": ["server.js", "test-runner.js", "index.html", "cases/"],
   "ext": "js,html,json",
   "ignore": ["node_modules", ".env"],
   "delay": "1000"

@@ -1,4 +1,3 @@
-const { chromium } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 
@@ -10,64 +9,44 @@ if (!fs.existsSync(envPath)) {
 
 require('dotenv').config();
 
-const testCases = [
-  {
-    name: 'Handraise Staging',
-    description: 'Tests that Handraise staging app loads successfully',
-    test: async () => {
-      const url = process.env.HANDRAISE_URL;
-      const browser = await chromium.launch();
-      const page = await browser.newPage();
-      await page.goto(url);
-      await page.waitForLoadState('networkidle');
-      await browser.close();
-    }
-  },
-  {
-    name: 'Handraise Load And Login',
-    description: 'Tests loading Handraise staging and performing login',
-    test: async () => {
-      const url = process.env.HANDRAISE_URL;
-      const username = process.env.HANDRAISE_USERNAME;
-      const password = process.env.HANDRAISE_PASSWORD;
+// Dynamically load test cases from the cases folder
+function loadTestCases() {
+  const casesDir = path.join(__dirname, 'cases');
+  const testCases = [];
 
-      if (!username || !password) {
-        throw new Error('HANDRAISE_USERNAME and HANDRAISE_PASSWORD must be set in .env file');
-      }
+  if (!fs.existsSync(casesDir)) {
+    throw new Error('Cases directory not found');
+  }
 
-      const browser = await chromium.launch();
-      const page = await browser.newPage();
-      await page.goto(url);
-      await page.waitForLoadState('networkidle');
+  const files = fs.readdirSync(casesDir).filter(file => file.endsWith('.js'));
 
-      // Look for common login form elements
-      const usernameField = await page.locator('input[type="email"], input[name="email"], input[name="username"], input[id="email"], input[id="username"]').first();
-      const passwordField = await page.locator('input[type="password"], input[name="password"], input[id="password"]').first();
+  for (const file of files) {
+    try {
+      const filePath = path.join(casesDir, file);
+      // Clear require cache to allow for hot reloading
+      delete require.cache[require.resolve(filePath)];
+      const testCase = require(filePath);
 
-      if (await usernameField.isVisible() && await passwordField.isVisible()) {
-        await usernameField.fill(username);
-        await passwordField.fill(password);
-
-        // Look for login/submit button
-        const loginButton = await page.locator('button[type="submit"], button:has-text("Login"), button:has-text("Sign In"), input[type="submit"]').first();
-        if (await loginButton.isVisible()) {
-          await loginButton.click();
-          await page.waitForLoadState('networkidle');
-        }
+      if (testCase.name && testCase.description && typeof testCase.test === 'function') {
+        testCases.push(testCase);
       } else {
-        throw new Error('Login form not found on the page');
+        console.warn(`Skipping invalid test case file: ${file}`);
       }
-
-      await browser.close();
+    } catch (error) {
+      console.error(`Error loading test case from ${file}:`, error.message);
     }
   }
-];
+
+  return testCases;
+}
 
 function getTestCases() {
+  const testCases = loadTestCases();
   return testCases.map(({ name, description }) => ({ name, description }));
 }
 
 async function runTest(testName) {
+  const testCases = loadTestCases();
   const testCase = testCases.find(tc => tc.name === testName);
   if (!testCase) {
     return { name: testName, status: 'failed', error: 'Test case not found', duration: 0 };
@@ -83,6 +62,7 @@ async function runTest(testName) {
 }
 
 async function runTests() {
+  const testCases = loadTestCases();
   const results = [];
 
   for (const testCase of testCases) {
