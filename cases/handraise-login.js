@@ -17,27 +17,48 @@ module.exports = {
 
     const browser = await chromium.launch();
     const page = await browser.newPage();
-    await page.goto(url);
-    await page.waitForLoadState('networkidle');
+    
+    try {
+      // Step 1: Navigate to the URL
+      await page.goto(url);
+      await page.waitForLoadState('networkidle');
 
-    // Look for common login form elements
-    const usernameField = await page.locator('input[type="email"], input[name="email"], input[name="username"], input[id="email"], input[id="username"]').first();
-    const passwordField = await page.locator('input[type="password"], input[name="password"], input[id="password"]').first();
+      // Step 2: Wait for login form elements with explicit timeouts
+      await page.waitForSelector(
+        'input[type="email"], input[name="email"], input[name="username"]',
+        { timeout: 10000 }
+      );
+      await page.waitForSelector(
+        'input[type="password"], input[name="password"]',
+        { timeout: 5000 }
+      );
 
-    if (await usernameField.isVisible() && await passwordField.isVisible()) {
-      await usernameField.fill(username);
-      await passwordField.fill(password);
+      // Step 3: Fill authentication form
+      const emailInput = page.locator(
+        'input[type="email"], input[name="email"], input[name="username"]'
+      ).first();
+      const passwordInput = page.locator(
+        'input[type="password"], input[name="password"]'
+      ).first();
 
-      // Look for login/submit button
-      const loginButton = await page.locator('button[type="submit"], button:has-text("Login"), button:has-text("Sign In"), input[type="submit"]').first();
-      if (await loginButton.isVisible()) {
-        await loginButton.click();
-        await page.waitForLoadState('networkidle');
-      }
-    } else {
-      throw new Error('Login form not found on the page');
+      await emailInput.fill(username);
+      await passwordInput.fill(password);
+
+      // Step 4: Find and click submit button
+      const submitButton = page.locator(
+        'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
+      ).first();
+      
+      await submitButton.click();
+      await page.waitForLoadState('networkidle');
+
+      // Optional: Wait a bit more to ensure login completes
+      await page.waitForTimeout(2000);
+
+    } catch (error) {
+      throw new Error(`Login failed: ${error.message}`);
+    } finally {
+      await browser.close();
     }
-
-    await browser.close();
   }
 };
