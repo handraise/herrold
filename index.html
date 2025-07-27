@@ -30,6 +30,9 @@ async function loadTestCases() {
   }
 }
 
+// Track if any test is currently running
+let isTestRunning = false;
+
 function renderTestCases(results = []) {
   const container = document.getElementById('test-cases');
   container.innerHTML = testCases.map(tc => {
@@ -58,6 +61,9 @@ function renderTestCases(results = []) {
     }
     
     const testId = encodeURIComponent(tc.name);
+    const isRunning = result && result.status === 'running';
+    const buttonText = isRunning ? 'Running...' : 'Run';
+    const buttonDisabled = isTestRunning ? 'disabled' : '';
     
     return `
       <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -67,10 +73,10 @@ function renderTestCases(results = []) {
             <div class="text-sm text-gray-600 mt-1">${tc.description}</div>
           </div>
           <div class="flex items-center space-x-3">
-            <button onclick="runSingleTest('${testId}')" id="btn-${testId}"
+            <button onclick="runSingleTest('${testId}')" id="btn-${testId}" ${buttonDisabled}
               class="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed 
                      text-white text-xs font-medium py-1 px-3 rounded transition-colors duration-200">
-              Run
+              ${buttonText}
             </button>
             <div class="flex items-center space-x-2">${statusHtml}</div>
           </div>
@@ -82,18 +88,14 @@ function renderTestCases(results = []) {
 }
 
 async function runSingleTest(testId) {
+  if (isTestRunning) return; // Prevent double-clicking
+  
   const testName = decodeURIComponent(testId);
-  const button = document.getElementById(`btn-${testId}`);
   const runAllButton = document.getElementById('run-btn');
   
-  // Disable all buttons during single test execution
+  // Set global running state
+  isTestRunning = true;
   runAllButton.disabled = true;
-  testCases.forEach(tc => {
-    const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
-    if (btn) btn.disabled = true;
-  });
-  
-  button.textContent = 'Running...';
   
   // Show running status for this test
   const currentResults = getCurrentResults();
@@ -113,15 +115,11 @@ async function runSingleTest(testId) {
     alert('Error running test: ' + err.message);
     renderTestCases(currentResults);
   } finally {
-    // Re-enable all buttons
+    // Reset global running state
+    isTestRunning = false;
     runAllButton.disabled = false;
-    testCases.forEach(tc => {
-      const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Run';
-      }
-    });
+    // Re-render to enable all buttons
+    renderTestCases(window.lastResults || []);
   }
 }
 
@@ -131,15 +129,14 @@ function getCurrentResults() {
 }
 
 async function runTests() {
+  if (isTestRunning) return; // Prevent double-clicking
+  
   const button = document.getElementById('run-btn');
+  
+  // Set global running state
+  isTestRunning = true;
   button.disabled = true;
   button.textContent = 'Running...';
-  
-  // Disable all individual run buttons
-  testCases.forEach(tc => {
-    const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
-    if (btn) btn.disabled = true;
-  });
   
   // Show running status
   renderTestCases(testCases.map(tc => ({ name: tc.name, status: 'running' })));
@@ -152,14 +149,12 @@ async function runTests() {
   } catch (err) {
     alert('Error running tests: ' + err.message);
   } finally {
+    // Reset global running state
+    isTestRunning = false;
     button.disabled = false;
-    button.textContent = 'Run Tests';
-    
-    // Re-enable all individual run buttons
-    testCases.forEach(tc => {
-      const btn = document.getElementById(`btn-${encodeURIComponent(tc.name)}`);
-      if (btn) btn.disabled = false;
-    });
+    button.textContent = 'Run All Tests';
+    // Re-render to enable all buttons
+    renderTestCases(window.lastResults || []);
   }
 }
 
