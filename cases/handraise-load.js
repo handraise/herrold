@@ -1,8 +1,8 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'Handraise Staging Load',
-  description: 'Tests that Handraise staging app loads successfully',
+  name: 'Handraise Login Load',
+  description: 'Tests that Handraise staging app login loads successfully',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
     if (!url) {
@@ -11,11 +11,11 @@ module.exports = {
 
     const browser = await chromium.launch();
     const page = await browser.newPage();
-    
+
     try {
       // Navigate and wait for basic load
       await page.goto(url, { waitUntil: 'domcontentloaded' });
-      
+
       // Wait for React app to mount - look for common React indicators
       try {
         // Option 1: Wait for React root div or main app container
@@ -24,7 +24,7 @@ module.exports = {
         // Option 2: If no common selectors, wait for any interactive element
         await page.waitForSelector('button, input, a, [role="button"]', { timeout: 10000 });
       }
-      
+
       // Verify the page title loaded
       const title = await page.title();
       if (!title || title.includes('Error')) {
