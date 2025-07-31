@@ -45,28 +45,54 @@ function getTestCases() {
   return testCases.map(({ name, description }) => ({ name, description }));
 }
 
-async function runTest(testName) {
+async function runTest(testName, stepCallback) {
   const testCases = loadTestCases();
   const testCase = testCases.find(tc => tc.name === testName);
   if (!testCase) {
     return { name: testName, status: 'failed', error: 'Test case not found', duration: 0 };
   }
 
+  // Temporarily override console.log if stepCallback is provided
+  const originalConsoleLog = console.log;
+  if (stepCallback) {
+    console.log = (...args) => {
+      const message = args.join(' ');
+      stepCallback({ type: 'step', message, timestamp: new Date().toISOString() });
+      originalConsoleLog(...args); // Still log to actual console
+    };
+  }
+
   const start = Date.now();
   try {
     await testCase.test();
-    return { name: testName, status: 'passed', duration: Date.now() - start };
+    const result = { name: testName, status: 'passed', duration: Date.now() - start };
+    if (stepCallback) {
+      stepCallback({ type: 'complete', result });
+    }
+    return result;
   } catch (err) {
-    return { name: testName, status: 'failed', error: err.message, duration: Date.now() - start };
+    const result = { name: testName, status: 'failed', error: err.message, duration: Date.now() - start };
+    if (stepCallback) {
+      stepCallback({ type: 'complete', result });
+    }
+    return result;
+  } finally {
+    // Restore original console.log
+    if (stepCallback) {
+      console.log = originalConsoleLog;
+    }
   }
 }
 
-async function runTests() {
+async function runTests(stepCallback) {
   const testCases = loadTestCases();
   const results = [];
 
   for (const testCase of testCases) {
-    const result = await runTest(testCase.name);
+    const result = await runTest(testCase.name, stepCallback ? 
+      (data) => stepCallback({ ...data, testName: testCase.name }) : 
+      undefined
+    );
     results.push(result);
   }
 

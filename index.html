@@ -32,6 +32,8 @@ async function loadTestCases() {
 
 // Track if any test is currently running
 let isTestRunning = false;
+// Store test logs
+let testLogs = {};
 
 function renderTestCases(results = []) {
   const container = document.getElementById('test-cases');
@@ -65,6 +67,21 @@ function renderTestCases(results = []) {
     const buttonText = isRunning ? 'Running...' : 'Run';
     const buttonDisabled = isTestRunning ? 'disabled' : '';
     
+    // Get logs for this test
+    const logs = testLogs[tc.name] || [];
+    const showLogs = isRunning || logs.length > 0;
+    const logsHtml = showLogs ? `
+      <div class="mt-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs font-medium text-gray-600">📋 Output</span>
+          ${!isRunning && logs.length > 0 ? `<button onclick="clearLogs('${tc.name}')" class="text-xs text-gray-500 hover:text-gray-700">Clear</button>` : ''}
+        </div>
+        <div class="text-xs font-mono space-y-1 max-h-48 overflow-y-auto" id="logs-${testId}">
+          ${logs.map(log => `<div class="text-gray-700">${log}</div>`).join('')}
+        </div>
+      </div>
+    ` : '';
+    
     return `
       <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
         <div class="flex justify-between items-start">
@@ -82,6 +99,7 @@ function renderTestCases(results = []) {
           </div>
         </div>
         ${errorHtml}
+        ${logsHtml}
       </div>
     `;
   }).join('');
@@ -97,30 +115,57 @@ async function runSingleTest(testId) {
   isTestRunning = true;
   runAllButton.disabled = true;
   
+  // Clear previous logs for this test
+  testLogs[testName] = [];
+  
   // Show running status for this test
   const currentResults = getCurrentResults();
   const runningResult = { name: testName, status: 'running' };
   const updatedResults = currentResults.filter(r => r.name !== testName).concat(runningResult);
   renderTestCases(updatedResults);
   
-  try {
-    const res = await fetch(`/run-test/${testId}`);
-    const result = await res.json();
+  // Use SSE for streaming
+  const eventSource = new EventSource(`/run-test-stream/${testId}`);
+  
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
     
-    // Update results with the new result
-    const finalResults = currentResults.filter(r => r.name !== testName).concat(result);
-    window.lastResults = finalResults;
-    renderTestCases(finalResults);
-  } catch (err) {
-    alert('Error running test: ' + err.message);
-    renderTestCases(currentResults);
-  } finally {
-    // Reset global running state
+    if (data.type === 'step') {
+      // Add step to logs
+      const logEntry = `[${new Date(data.timestamp).toLocaleTimeString()}] ${data.message}`;
+      testLogs[testName].push(logEntry);
+      
+      // Update just the logs section without re-rendering everything
+      const logsContainer = document.getElementById(`logs-${testId}`);
+      if (logsContainer) {
+        logsContainer.innerHTML = testLogs[testName].map(log => `<div class="text-gray-700">${log}</div>`).join('');
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+      }
+    } else if (data.type === 'complete') {
+      // Update with final result
+      const finalResults = currentResults.filter(r => r.name !== testName).concat(data.result);
+      window.lastResults = finalResults;
+      renderTestCases(finalResults);
+      
+      // Close SSE connection
+      eventSource.close();
+      
+      // Reset global running state
+      isTestRunning = false;
+      runAllButton.disabled = false;
+      renderTestCases(window.lastResults || []);
+    }
+  };
+  
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error);
+    eventSource.close();
+    
+    // Reset on error
     isTestRunning = false;
     runAllButton.disabled = false;
-    // Re-render to enable all buttons
-    renderTestCases(window.lastResults || []);
-  }
+    renderTestCases(currentResults);
+  };
 }
 
 function getCurrentResults() {
@@ -138,24 +183,76 @@ async function runTests() {
   button.disabled = true;
   button.textContent = 'Running...';
   
+  // Clear all logs
+  testLogs = {};
+  
   // Show running status
   renderTestCases(testCases.map(tc => ({ name: tc.name, status: 'running' })));
   
-  try {
-    const res = await fetch('/run-tests');
-    const results = await res.json();
-    window.lastResults = results;
-    renderTestCases(results);
-  } catch (err) {
-    alert('Error running tests: ' + err.message);
-  } finally {
-    // Reset global running state
+  // Use SSE for streaming all tests
+  const eventSource = new EventSource('/run-tests-stream');
+  const runningTests = new Set(testCases.map(tc => tc.name));
+  const results = [];
+  
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'step' && data.testName) {
+      // Add step to logs for the specific test
+      if (!testLogs[data.testName]) {
+        testLogs[data.testName] = [];
+      }
+      const logEntry = `[${new Date(data.timestamp).toLocaleTimeString()}] ${data.message}`;
+      testLogs[data.testName].push(logEntry);
+      
+      // Update just the logs section for this test
+      const testId = encodeURIComponent(data.testName);
+      const logsContainer = document.getElementById(`logs-${testId}`);
+      if (logsContainer) {
+        logsContainer.innerHTML = testLogs[data.testName].map(log => `<div class="text-gray-700">${log}</div>`).join('');
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+      }
+    } else if (data.type === 'complete' && data.result) {
+      // Mark individual test as complete
+      runningTests.delete(data.result.name);
+      results.push(data.result);
+      
+      // Update the display with partial results
+      const stillRunning = Array.from(runningTests).map(name => ({ name, status: 'running' }));
+      const currentResults = [...results, ...stillRunning];
+      window.lastResults = currentResults;
+      renderTestCases(currentResults);
+    } else if (data.type === 'all-complete') {
+      // All tests completed
+      window.lastResults = data.results;
+      renderTestCases(data.results);
+      
+      // Close SSE connection
+      eventSource.close();
+      
+      // Reset global running state
+      isTestRunning = false;
+      button.disabled = false;
+      button.textContent = 'Run All Tests';
+      renderTestCases(window.lastResults || []);
+    }
+  };
+  
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error);
+    eventSource.close();
+    
+    // Reset on error
     isTestRunning = false;
     button.disabled = false;
     button.textContent = 'Run All Tests';
-    // Re-render to enable all buttons
     renderTestCases(window.lastResults || []);
-  }
+  };
+}
+
+function clearLogs(testName) {
+  testLogs[testName] = [];
+  renderTestCases(window.lastResults || []);
 }
 
 window.onload = loadTestCases;
