@@ -37,64 +37,37 @@ module.exports = {
         console.log('✅ Interactive elements found');
       }
 
-      // Step 2: Perform login
-      console.log('🔐 Step 2: Logging in...');
+      // Step 2: Perform login (use proven approach from other tests)
+      console.log('🔐 Step 2: Looking for login form elements...');
       
-      // Wait for and fill email field - try multiple selectors
-      console.log('📧 Looking for email field...');
-      const emailSelectors = [
-        'input[type="email"]',
-        'input[name="email"]', 
-        'input#email',
-        'input[aria-label*="mail" i]',
-        'input[placeholder*="mail" i]'
-      ];
+      // Wait for login form elements with explicit timeouts
+      await page.waitForSelector(
+        'input[type="email"], input[name="email"], input[name="username"]',
+        { timeout: 10000 }
+      );
+      console.log('✅ Email input field found');
       
-      let emailInput;
-      for (const selector of emailSelectors) {
-        try {
-          emailInput = page.locator(selector).first();
-          if (await emailInput.isVisible({ timeout: 1000 })) {
-            console.log(`✅ Email field found with selector: ${selector}`);
-            break;
-          }
-        } catch {}
-      }
-      
-      if (!emailInput || !(await emailInput.isVisible())) {
-        throw new Error('Could not find email input field');
-      }
-      
+      await page.waitForSelector(
+        'input[type="password"], input[name="password"]',
+        { timeout: 5000 }
+      );
+      console.log('✅ Password input field found');
+
+      // Fill authentication form
+      console.log('✍️ Filling login form...');
+      const emailInput = page.locator(
+        'input[type="email"], input[name="email"], input[name="username"]'
+      ).first();
+      const passwordInput = page.locator(
+        'input[type="password"], input[name="password"]'
+      ).first();
+
       await emailInput.click();
       await emailInput.fill(username);
       console.log('✅ Email filled');
-
-      // Tab to password field (mimics original flow)
+      
+      // Tab to password field (preserving original flow)
       await page.keyboard.press('Tab');
-      
-      // Fill password field
-      console.log('🔑 Looking for password field...');
-      const passwordSelectors = [
-        'input[type="password"]',
-        'input[name="password"]',
-        'input#password',
-        'input[aria-label*="password" i]'
-      ];
-      
-      let passwordInput;
-      for (const selector of passwordSelectors) {
-        try {
-          passwordInput = page.locator(selector).first();
-          if (await passwordInput.isVisible({ timeout: 1000 })) {
-            console.log(`✅ Password field found with selector: ${selector}`);
-            break;
-          }
-        } catch {}
-      }
-      
-      if (!passwordInput || !(await passwordInput.isVisible())) {
-        throw new Error('Could not find password input field');
-      }
       
       await passwordInput.fill(password);
       console.log('✅ Password filled');
