@@ -76,20 +76,33 @@ module.exports = {
       console.log('⏎ Submitting login with Enter key...');
       await page.keyboard.press('Enter');
       
-      // Wait for navigation after login
-      console.log('⏳ Waiting for login to complete...');
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
-        console.log('⚠️ Network idle timeout, continuing...');
-      });
+      // Step 3: Wait for redirect to newsfeeds page (from Python script)
+      console.log('🔄 Step 3: Waiting for redirect to newsfeeds...');
+      try {
+        await page.waitForURL('**/newsfeeds**', { timeout: 15000 });
+        console.log('✅ Successfully redirected to newsfeeds page');
+      } catch (error) {
+        console.log('⚠️ Not redirected to newsfeeds, checking current location...');
+        const currentUrl = page.url();
+        console.log('📍 Current URL:', currentUrl);
+        
+        // If still on login, the login might have failed
+        if (currentUrl.includes('auth/login')) {
+          throw new Error('Login failed - still on login page');
+        }
+        
+        // Otherwise continue - we might be on a different valid page
+        console.log('📍 Proceeding from current page');
+      }
       
-      // Wait for post-login content
-      await page.waitForTimeout(3000);
+      // Additional wait for content to load
+      await page.waitForTimeout(2000);
       
       const currentUrl = page.url();
       console.log('📍 Current URL after login:', currentUrl);
       
-      // Step 3: Look for and click "View Newsfeed" button
-      console.log('📰 Step 3: Looking for View Newsfeed button...');
+      // Step 4: Look for and click "View Newsfeed" button
+      console.log('📰 Step 4: Looking for View Newsfeed button...');
       
       // Try multiple selectors for the View Newsfeed button
       const viewNewsfeedSelectors = [
@@ -130,8 +143,8 @@ module.exports = {
         }
       }
       
-      // Step 4: Perform search
-      console.log('🔍 Step 4: Performing search...');
+      // Step 5: Perform search
+      console.log('🔍 Step 5: Performing search...');
       
       // Look for search input area - try multiple approaches
       const searchSelectors = [
