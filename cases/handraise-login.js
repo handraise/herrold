@@ -75,14 +75,28 @@ module.exports = {
       await passwordInput.fill(password);
       console.log('✅ Password filled');
 
+      // Small delay to ensure fields are properly filled
+      await page.waitForTimeout(500);
+
       // Step 4: Find and click submit button
-      console.log('🔘 Step 4: Clicking login button...');
+      console.log('🔘 Step 4: Submitting login form...');
+      
+      // Try to find the submit button with more specific selectors
       const submitButton = page.locator(
         'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
       ).first();
-
+      
+      // Wait for button to be visible and enabled
+      await submitButton.waitFor({ state: 'visible', timeout: 5000 });
+      console.log('✅ Submit button found and visible');
+      
+      // Click the button
       await submitButton.click();
       console.log('✅ Login button clicked');
+      
+      // Also try pressing Enter as a backup
+      await page.keyboard.press('Enter');
+      console.log('✅ Pressed Enter key as backup');
       
       console.log('⏳ Waiting for login to complete...');
       

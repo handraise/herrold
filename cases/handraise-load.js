@@ -1,8 +1,8 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'Handraise Login Load',
-  description: 'Tests that Handraise staging app login loads successfully',
+  name: 'Handraise Load',
+  description: 'Tests that Handraise staging app loads successfully',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
     if (!url) {
@@ -14,7 +14,7 @@ module.exports = {
 
     try {
       console.log('🚀 Starting Handraise load test...');
-      
+
       // Navigate and wait for basic load
       console.log('📄 Navigating to:', url);
       await page.goto(url, { waitUntil: 'domcontentloaded' });

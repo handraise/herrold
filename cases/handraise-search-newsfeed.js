@@ -72,9 +72,23 @@ module.exports = {
       await passwordInput.fill(password);
       console.log('✅ Password filled');
 
+      // Small delay to ensure fields are properly filled
+      await page.waitForTimeout(500);
+
       // Submit with Enter key (mimics original flow)
       console.log('⏎ Submitting login with Enter key...');
       await page.keyboard.press('Enter');
+      
+      // Also try clicking the submit button as backup
+      try {
+        const submitButton = page.locator('button[type="submit"]').first();
+        if (await submitButton.isVisible({ timeout: 1000 })) {
+          await submitButton.click();
+          console.log('✅ Also clicked submit button as backup');
+        }
+      } catch {
+        // Button click is just a backup, continue if it fails
+      }
       
       // Step 3: Wait for redirect to newsfeeds page (from Python script)
       console.log('🔄 Step 3: Waiting for redirect to newsfeeds...');

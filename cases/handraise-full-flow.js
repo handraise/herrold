@@ -73,14 +73,26 @@ module.exports = {
       await passwordInput.fill(password);
       console.log('✅ Password filled');
 
+      // Small delay to ensure fields are properly filled
+      await page.waitForTimeout(500);
+
       // Find and click submit button
-      console.log('🔘 Clicking login button...');
+      console.log('🔘 Submitting login form...');
       const submitButton = page.locator(
         'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
       ).first();
       
+      // Wait for button to be visible and enabled
+      await submitButton.waitFor({ state: 'visible', timeout: 5000 });
+      console.log('✅ Submit button found and visible');
+      
+      // Click the button
       await submitButton.click();
       console.log('✅ Login button clicked');
+      
+      // Also try pressing Enter as a backup
+      await page.keyboard.press('Enter');
+      console.log('✅ Pressed Enter key as backup');
 
       // Step 3: Wait for navigation after login
       console.log('🔄 Step 3: Waiting for navigation after login...');
@@ -192,14 +204,31 @@ module.exports = {
         if (cardCount > 0) {
           console.log(`📊 Found ${cardCount} clickable cards`);
           
+          // Log all card headings for debugging
+          console.log('📋 Listing all card headings:');
+          for (let i = 0; i < Math.min(cardCount, 10); i++) { // Limit to first 10 to avoid spam
+            const card = newsfeedCards.nth(i);
+            const cardHeadings = await card.locator('h1, h2, h3, h4').all();
+            if (cardHeadings.length > 0) {
+              for (const heading of cardHeadings) {
+                const text = await heading.textContent();
+                console.log(`   Card ${i + 1}: "${text}"`);
+              }
+            }
+          }
+          
           // Verify at least one card has some expected structure
           console.log('🔍 Verifying card structure...');
           const firstCard = newsfeedCards.first();
           
-          // Check for any heading or title
-          const hasHeading = await firstCard.locator('h1, h2, h3, h4').count() > 0;
-          if (hasHeading) {
-            console.log('✅ Card headings found');
+          // Check for any heading or title and log their content
+          const headings = await firstCard.locator('h1, h2, h3, h4').all();
+          if (headings.length > 0) {
+            console.log('✅ Card headings found:');
+            for (const heading of headings) {
+              const text = await heading.textContent();
+              console.log(`   📝 "${text}"`);
+            }
           }
           
           // Check for any buttons
