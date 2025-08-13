@@ -18,29 +18,6 @@ module.exports = {
     const browser = await chromium.launch();
     const page = await browser.newPage();
 
-    // Helper function to wait for the first selector to appear
-    async function raceSelector(page, selectors, opts = {}) {
-      const timeout = opts.timeout ?? 10000;
-      const waits = selectors.map(sel =>
-        page.waitForSelector(sel, { timeout })
-          .then(() => sel)
-          .catch(() => null)
-      );
-      const result = await Promise.race(waits);
-      if (!result) {
-        // If race didn't find anything, try them sequentially with better error
-        for (const sel of selectors) {
-          try {
-            await page.waitForSelector(sel, { timeout: 1000 });
-            return sel;
-          } catch (e) {
-            // Continue to next selector
-          }
-        }
-        throw new Error(`None of the selectors were found: ${selectors.join(', ')}`);
-      }
-      return result;
-    }
 
     try {
       console.log('🚀 Starting Generate Insights test...');
@@ -50,87 +27,129 @@ module.exports = {
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       console.log('✅ Page navigation completed');
 
-      // Wait for React app to mount
+      // Wait for React app to mount - look for common React indicators
       console.log('⚛️ Waiting for React app to mount...');
-      await page.waitForSelector('#root, [id*="app"], main, .app', { timeout: 15000 }).catch(() => {
+      try {
+        await page.waitForSelector('#root, [id*="app"], main, .app', { timeout: 15000 });
+        console.log('✅ React app container found');
+      } catch {
         console.log('⚠️ React container not found, waiting for interactive elements...');
-        return page.waitForSelector('button, input, a, [role="button"]', { timeout: 10000 });
-      });
-      console.log('✅ React app loaded');
+        await page.waitForSelector('button, input, a, [role="button"]', { timeout: 10000 });
+        console.log('✅ Interactive elements found');
+      }
+      
+      // Verify the page title loaded
+      console.log('🔍 Verifying page title...');
+      const title = await page.title();
+      if (!title || title.includes('Error')) {
+        throw new Error('Page failed to load properly');
+      }
+      console.log('✅ Page title verified:', title);
 
-      // Step 2: Perform login
-      console.log('🔐 Step 2: Logging in...');
+      // Step 2: Wait for login form elements and perform login
+      console.log('🔐 Step 2: Looking for login form elements...');
+      await page.waitForSelector(
+        'input[type="email"], input[name="email"], input[name="username"]',
+        { timeout: 10000 }
+      );
+      console.log('✅ Email input field found');
+      
+      await page.waitForSelector(
+        'input[type="password"], input[name="password"]',
+        { timeout: 5000 }
+      );
+      console.log('✅ Password input field found');
 
-      // Find and fill email field
-      console.log('✍️ Filling email field...');
-      const emailSelectors = [
-        'input[type="email"]',
-        'input[name="email"]',
-        'input[name="username"]',
-        '#email',
-        'input[placeholder*="email" i]',
-        'aria=Email'
-      ];
-      const emailSelector = await raceSelector(page, emailSelectors);
-      await page.locator(emailSelector).fill(username);
+      // Fill authentication form
+      console.log('✍️ Filling login form...');
+      const emailInput = page.locator(
+        'input[type="email"], input[name="email"], input[name="username"]'
+      ).first();
+      const passwordInput = page.locator(
+        'input[type="password"], input[name="password"]'
+      ).first();
+
+      await emailInput.fill(username);
       console.log('✅ Email filled');
-
-      // Find and fill password field
-      console.log('✍️ Filling password field...');
-      const passwordSelectors = [
-        'input[type="password"]',
-        'input[name="password"]',
-        '#password',
-        'aria=Password'
-      ];
-      const passwordSelector = await raceSelector(page, passwordSelectors);
-      await page.locator(passwordSelector).fill(password);
+      await passwordInput.fill(password);
       console.log('✅ Password filled');
 
       // Small delay to ensure fields are properly filled
       await page.waitForTimeout(500);
 
-      // Submit login form
+      // Find and click submit button
       console.log('🔘 Submitting login form...');
-      const submitSelectors = [
-        'button[type="submit"]',
-        'button:has-text("Sign In")',
-        'button:has-text("Sign in")',
-        'button:has-text("Login")',
-        'input[type="submit"]',
-        'aria=Sign In'
-      ];
-      const submitSelector = await raceSelector(page, submitSelectors);
-      await page.locator(submitSelector).click();
-      console.log('✅ Login form submitted');
+      const submitButton = page.locator(
+        'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
+      ).first();
+      
+      // Wait for button to be visible and enabled
+      await submitButton.waitFor({ state: 'visible', timeout: 5000 });
+      console.log('✅ Submit button found and visible');
+      
+      // Click the button
+      await submitButton.click();
+      console.log('✅ Login button clicked');
+      
+      // Also try pressing Enter as a backup
+      await page.keyboard.press('Enter');
+      console.log('✅ Pressed Enter key as backup');
 
-      // Wait for navigation after login
-      console.log('⏳ Waiting for login to complete...');
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
-        console.log('⚠️ Network idle timeout, continuing...');
-      });
-      await page.waitForTimeout(3000);
-      console.log('✅ Login completed');
-
-      // Step 3: Navigate to newsfeed
-      console.log('📰 Step 3: Navigating to newsfeed...');
-      const newsfeedSelectors = [
-        'button:has-text("View Newsfeed")',
-        'a:has-text("View Newsfeed")',
-        '[aria-label*="View Newsfeed"]',
-        'text=View Newsfeed'
-      ];
-
+      // Step 3: Wait for navigation after login
+      console.log('🔄 Step 3: Waiting for navigation after login...');
+      
+      // Wait for either redirect or page content change
       try {
-        const newsfeedSelector = await raceSelector(page, newsfeedSelectors, { timeout: 10000 });
-        await page.locator(newsfeedSelector).click();
-        console.log('✅ Clicked View Newsfeed');
-
-        // Wait for newsfeed to load
-        await page.waitForTimeout(3000);
-        console.log('✅ Newsfeed loaded');
-      } catch (error) {
-        console.log('⚠️ Could not find View Newsfeed button, might already be on newsfeed');
+        // First, wait for any navigation or content change
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
+        console.log('✅ Page loaded after login');
+        
+        // Check if we're redirected to newsfeeds
+        await page.waitForURL('**/newsfeeds**', { timeout: 5000 });
+        console.log('✅ Successfully redirected to newsfeeds page');
+      } catch {
+        console.log('⚠️ No automatic redirect to newsfeeds, checking for alternate navigation...');
+        
+        // Check current URL
+        const currentUrl = page.url();
+        console.log('📍 Current URL:', currentUrl);
+        
+        // If still on login page, look for dashboard or home elements
+        if (currentUrl.includes('auth/login')) {
+          console.log('🔍 Still on login page, looking for post-login indicators...');
+          
+          // Look for common post-login elements
+          try {
+            // Check for logout button or user menu (indicates successful login)
+            const loggedInIndicator = await page.locator('button:has-text("Logout"), button:has-text("Sign out"), [aria-label*="user"], [aria-label*="account"], [data-testid*="user"]').first();
+            if (await loggedInIndicator.isVisible({ timeout: 5000 })) {
+              console.log('✅ Found logged-in indicator, login successful');
+              
+              // Try to navigate to newsfeeds manually
+              console.log('🔍 Looking for newsfeeds link/button...');
+              const newsfeedsLink = await page.locator('a[href*="newsfeeds"], button:has-text("Newsfeeds"), a:has-text("Newsfeeds"), button:has-text("View Newsfeed"), a:has-text("View Newsfeed")').first();
+              if (await newsfeedsLink.isVisible({ timeout: 3000 })) {
+                console.log('📱 Clicking newsfeeds/View Newsfeed link...');
+                await newsfeedsLink.click();
+                await page.waitForLoadState('networkidle', { timeout: 10000 });
+                console.log('✅ Navigated to newsfeeds');
+              }
+            }
+          } catch (e) {
+            console.log('⚠️ Could not find post-login indicators');
+          }
+        }
+        
+        // Final URL check
+        const finalUrl = page.url();
+        if (!finalUrl.includes('newsfeeds')) {
+          // Check if we're at least logged in (not on login page)
+          if (finalUrl.includes('auth/login')) {
+            throw new Error(`Login appears to have failed. Still on: ${finalUrl}`);
+          }
+          console.log('⚠️ Not on newsfeeds page, but login appears successful');
+          console.log('📍 Current page:', finalUrl);
+        }
       }
 
       // Step 4: Generate Insights
@@ -140,15 +159,13 @@ module.exports = {
       await page.locator('body').click({ position: { x: 350, y: 223 } });
       await page.waitForTimeout(500);
 
-      const generateInsightsSelectors = [
-        'button:has-text("Generate Insights")',
-        'span:has-text("Generate Insights")',
-        '[aria-label*="Generate Insights"]',
-        'text=Generate Insights'
-      ];
-
-      const generateSelector = await raceSelector(page, generateInsightsSelectors, { timeout: 10000 });
-      await page.locator(generateSelector).click();
+      // Look for Generate Insights button with multiple selectors
+      const generateButton = page.locator(
+        'button:has-text("Generate Insights"), span:has-text("Generate Insights"), [aria-label*="Generate Insights"]'
+      ).first();
+      
+      await generateButton.waitFor({ state: 'visible', timeout: 10000 });
+      await generateButton.click();
       console.log('✅ Clicked Generate Insights');
 
       // Wait for insights to be generated
@@ -157,15 +174,14 @@ module.exports = {
 
       // Step 5: Copy summary
       console.log('📋 Step 5: Copying summary...');
-      const copySummarySelectors = [
-        'button:has-text("Copy summary")',
-        '[aria-label="Copy summary"]',
-        'text=Copy summary'
-      ];
-
+      // Look for Copy summary button
+      const copyButton = page.locator(
+        'button:has-text("Copy summary"), [aria-label="Copy summary"]'
+      ).first();
+      
       try {
-        const copySelector = await raceSelector(page, copySummarySelectors, { timeout: 10000 });
-        await page.locator(copySelector).click();
+        await copyButton.waitFor({ state: 'visible', timeout: 10000 });
+        await copyButton.click();
         console.log('✅ Clicked Copy summary');
 
         // Small delay to ensure copy action completes
