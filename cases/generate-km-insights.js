@@ -1,7 +1,7 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'Handraise Generate KM Insights',
+  name: 'Key Message Insights',
   description: 'Tests login, navigating to newsfeed, generating a KM insights, and copying summary',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
@@ -37,7 +37,7 @@ module.exports = {
         await page.waitForSelector('button, input, a, [role="button"]', { timeout: 10000 });
         console.log('✅ Interactive elements found');
       }
-      
+
       // Verify the page title loaded
       console.log('🔍 Verifying page title...');
       const title = await page.title();
@@ -53,7 +53,7 @@ module.exports = {
         { timeout: 10000 }
       );
       console.log('✅ Email input field found');
-      
+
       await page.waitForSelector(
         'input[type="password"], input[name="password"]',
         { timeout: 5000 }
@@ -82,49 +82,49 @@ module.exports = {
       const submitButton = page.locator(
         'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
       ).first();
-      
+
       // Wait for button to be visible and enabled
       await submitButton.waitFor({ state: 'visible', timeout: 5000 });
       console.log('✅ Submit button found and visible');
-      
+
       // Click the button
       await submitButton.click();
       console.log('✅ Login button clicked');
-      
+
       // Also try pressing Enter as a backup
       await page.keyboard.press('Enter');
       console.log('✅ Pressed Enter key as backup');
 
       // Step 3: Wait for navigation after login
       console.log('🔄 Step 3: Waiting for navigation after login...');
-      
+
       // Wait for either redirect or page content change
       try {
         // First, wait for any navigation or content change
         await page.waitForLoadState('networkidle', { timeout: 10000 });
         console.log('✅ Page loaded after login');
-        
+
         // Check if we're redirected to newsfeeds
         await page.waitForURL('**/newsfeeds**', { timeout: 5000 });
         console.log('✅ Successfully redirected to newsfeeds page');
       } catch {
         console.log('⚠️ No automatic redirect to newsfeeds, checking for alternate navigation...');
-        
+
         // Check current URL
         const currentUrl = page.url();
         console.log('📍 Current URL:', currentUrl);
-        
+
         // If still on login page, look for dashboard or home elements
         if (currentUrl.includes('auth/login')) {
           console.log('🔍 Still on login page, looking for post-login indicators...');
-          
+
           // Look for common post-login elements
           try {
             // Check for logout button or user menu (indicates successful login)
             const loggedInIndicator = await page.locator('button:has-text("Logout"), button:has-text("Sign out"), [aria-label*="user"], [aria-label*="account"], [data-testid*="user"]').first();
             if (await loggedInIndicator.isVisible({ timeout: 5000 })) {
               console.log('✅ Found logged-in indicator, login successful');
-              
+
               // Try to navigate to newsfeeds manually
               console.log('🔍 Looking for newsfeeds link/button...');
               const newsfeedsLink = await page.locator('a[href*="newsfeeds"], button:has-text("Newsfeeds"), a:has-text("Newsfeeds"), button:has-text("View Newsfeed"), a:has-text("View Newsfeed")').first();
@@ -139,7 +139,7 @@ module.exports = {
             console.log('⚠️ Could not find post-login indicators');
           }
         }
-        
+
         // Final URL check
         const finalUrl = page.url();
         if (!finalUrl.includes('newsfeeds')) {
@@ -163,7 +163,7 @@ module.exports = {
       const generateButton = page.locator(
         'button:has-text("Generate Insights"), span:has-text("Generate Insights"), [aria-label*="Generate Insights"]'
       ).first();
-      
+
       await generateButton.waitFor({ state: 'visible', timeout: 10000 });
       await generateButton.click();
       console.log('✅ Clicked Generate Insights');
@@ -178,7 +178,7 @@ module.exports = {
       const copyButton = page.locator(
         'button:has-text("Copy summary"), [aria-label="Copy summary"]'
       ).first();
-      
+
       try {
         await copyButton.waitFor({ state: 'visible', timeout: 10000 });
         await copyButton.click();
@@ -200,7 +200,7 @@ module.exports = {
               return summaryElement ? summaryElement.textContent : null;
             }
           });
-          
+
           if (copiedText) {
             console.log('📄 Copied Summary Content:');
             console.log('=====================================');
@@ -212,7 +212,7 @@ module.exports = {
           }
         } catch (clipboardError) {
           console.log('⚠️ Could not read clipboard:', clipboardError.message);
-          
+
           // Alternative: Try to find and log the summary text directly from the page
           try {
             const summaryText = await page.evaluate(() => {
@@ -225,7 +225,7 @@ module.exports = {
                 '.modal-body', // If summary appears in a modal
                 '[role="dialog"] p', // Dialog content
               ];
-              
+
               for (const selector of selectors) {
                 const element = document.querySelector(selector);
                 if (element && element.textContent) {
@@ -234,7 +234,7 @@ module.exports = {
               }
               return null;
             });
-            
+
             if (summaryText) {
               console.log('📄 Summary Content (from page):');
               console.log('=====================================');

@@ -1,8 +1,8 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'Handraise Load',
-  description: 'Tests that Handraise staging app loads successfully',
+  name: 'Load',
+  description: 'Tests that Handraise app loads successfully',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
     if (!url) {

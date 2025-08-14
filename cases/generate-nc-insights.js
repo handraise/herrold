@@ -1,8 +1,8 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'NewsFeeds',
-  description: 'Tests complete login flow and verifies newsfeeds page loads with content',
+  name: 'Narrative Cluster Insights',
+  description: 'Tests login, navigating to newsfeed, generating a NC insights, and copying summary',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
     const username = process.env.HANDRAISE_USERNAME;
@@ -19,9 +19,9 @@ module.exports = {
     const page = await browser.newPage();
 
     try {
-      console.log('🚀 Starting Handraise full login flow test...');
+      console.log('🚀 Starting Generate AI Summary test...');
 
-      // Step 1: Navigate to the URL and wait for React app to load
+      // Step 1: Navigate to login page
       console.log('📄 Step 1: Navigating to:', url);
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       console.log('✅ Page navigation completed');
@@ -126,9 +126,9 @@ module.exports = {
 
               // Try to navigate to newsfeeds manually
               console.log('🔍 Looking for newsfeeds link/button...');
-              const newsfeedsLink = await page.locator('a[href*="newsfeeds"], button:has-text("Newsfeeds"), a:has-text("Newsfeeds")').first();
+              const newsfeedsLink = await page.locator('a[href*="newsfeeds"], button:has-text("Newsfeeds"), a:has-text("Newsfeeds"), button:has-text("View Newsfeed"), a:has-text("View Newsfeed")').first();
               if (await newsfeedsLink.isVisible({ timeout: 3000 })) {
-                console.log('📱 Clicking newsfeeds link...');
+                console.log('📱 Clicking newsfeeds/View Newsfeed link...');
                 await newsfeedsLink.click();
                 await page.waitForLoadState('networkidle', { timeout: 10000 });
                 console.log('✅ Navigated to newsfeeds');
@@ -148,124 +148,119 @@ module.exports = {
           }
           console.log('⚠️ Not on newsfeeds page, but login appears successful');
           console.log('📍 Current page:', finalUrl);
-
-          // Skip to verifying whatever page we're on has the expected structure
-          console.log('🔍 Attempting to verify page structure anyway...');
         }
       }
 
-      // Step 4: Verify page structure (either newsfeeds or main dashboard)
-      console.log('📱 Step 4: Verifying page structure...');
+      // Step 4: Generate AI Summary
+      console.log('🤖 Step 4: Generating AI summary...');
+
+      // Click somewhere in the body first (as in original script)
+      await page.locator('body').click({ position: { x: 348, y: 149 } });
+      await page.waitForTimeout(500);
+
+      // Look for Generate AI Summary button with multiple selectors
+      const generateButton = page.locator(
+        'button:has-text("Generate AI Summary"), span:has-text("Generate AI Summary"), [aria-label*="Generate AI Summary"], span.text-violet-800:has-text("Generate AI Summary")'
+      ).first();
+
+      await generateButton.waitFor({ state: 'visible', timeout: 10000 });
+      await generateButton.click();
+      console.log('✅ Clicked Generate AI Summary');
+
+      // Wait for AI summary to be generated
+      console.log('⏳ Waiting for AI summary to be generated...');
+      await page.waitForTimeout(5000); // Give time for AI to generate summary
+
+      // Step 5: Copy summary
+      console.log('📋 Step 5: Copying AI summary...');
+
+      // Look for Copy summary button
+      const copyButton = page.locator(
+        'button:has-text("Copy summary"), [aria-label="Copy summary"]'
+      ).first();
 
       try {
-        // Try to find the main container with specific class
-        await page.waitForSelector(
-          'main.overflow-y-auto.flex-col.items-center.p-6',
-          { timeout: 5000 }
-        );
-        console.log('✅ Main container with correct styling found');
-      } catch {
-        console.log('⚠️ Specific main container not found, looking for any main content...');
-        // Fallback: look for any main element
-        await page.waitForSelector('main, [role="main"], .main-content', { timeout: 5000 });
-        console.log('✅ Main content area found');
-      }
+        await copyButton.waitFor({ state: 'visible', timeout: 10000 });
+        await copyButton.click();
+        console.log('✅ Clicked Copy summary');
 
-      // Step 5: Verify content exists
-      console.log('📰 Step 5: Looking for content...');
+        // Small delay to ensure copy action completes
+        await page.waitForTimeout(1000);
 
-      try {
-        // Look for newsfeed cards with the specific structure
-        await page.waitForSelector(
-          'div[role="button"][tabindex="0"].relative.focus-visible\\:outline-none.w-\\[900px\\]',
-          { timeout: 5000 }
-        );
-        console.log('✅ Newsfeed cards structure found');
-      } catch {
-        console.log('⚠️ Specific newsfeed structure not found, looking for any content cards...');
-        // Fallback: look for any clickable cards or feed items
-        await page.waitForSelector(
-          'div[role="button"], article, .card, .feed-item, [data-testid*="card"], [data-testid*="feed"]',
-          { timeout: 5000 }
-        );
-        console.log('✅ Content cards found');
-      }
+        // Read the clipboard content to log the copied summary
+        try {
+          // Grant clipboard permissions and read the copied text
+          await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+          const copiedText = await page.evaluate(async () => {
+            try {
+              return await navigator.clipboard.readText();
+            } catch (e) {
+              // Fallback: try to find the summary text on the page
+              const summaryElement = document.querySelector('[class*="summary"], [class*="insight"], [id*="summary"], [id*="insight"]');
+              return summaryElement ? summaryElement.textContent : null;
+            }
+          });
 
-      // Verify content elements exist
-      console.log('🔍 Counting content cards...');
+          if (copiedText) {
+            console.log('📄 Copied AI Summary Content:');
+            console.log('=====================================');
+            console.log(copiedText);
+            console.log('=====================================');
+            console.log('✅ AI Summary copied and logged successfully');
+          } else {
+            console.log('⚠️ Could not retrieve clipboard content, but copy action was performed');
+          }
+        } catch (clipboardError) {
+          console.log('⚠️ Could not read clipboard:', clipboardError.message);
 
-      // Try multiple selectors for cards
-      let cardCount = 0;
-      try {
-        const mainContainer = page.locator('main').first();
-        const newsfeedCards = mainContainer.locator('div[role="button"]');
-        cardCount = await newsfeedCards.count();
+          // Alternative: Try to find and log the summary text directly from the page
+          try {
+            const summaryText = await page.evaluate(() => {
+              // Try multiple selectors to find the summary content
+              const selectors = [
+                '[class*="summary-content"]',
+                '[class*="ai-summary"]',
+                '[class*="generated-summary"]',
+                '[data-testid*="summary"]',
+                '.modal-body', // If summary appears in a modal
+                '[role="dialog"] p', // Dialog content
+              ];
 
-        if (cardCount > 0) {
-          console.log(`📊 Found ${cardCount} clickable cards`);
-
-          // Log all card headings for debugging
-          console.log('📋 Listing all card headings:');
-          for (let i = 0; i < Math.min(cardCount, 10); i++) { // Limit to first 10 to avoid spam
-            const card = newsfeedCards.nth(i);
-            const cardHeadings = await card.locator('h1, h2, h3, h4').all();
-            if (cardHeadings.length > 0) {
-              for (const heading of cardHeadings) {
-                const text = await heading.textContent();
-                console.log(`   Card ${i + 1}: "${text}"`);
+              for (const selector of selectors) {
+                const element = document.querySelector(selector);
+                if (element && element.textContent) {
+                  return element.textContent.trim();
+                }
               }
+              return null;
+            });
+
+            if (summaryText) {
+              console.log('📄 AI Summary Content (from page):');
+              console.log('=====================================');
+              console.log(summaryText);
+              console.log('=====================================');
             }
-          }
-
-          // Verify at least one card has some expected structure
-          console.log('🔍 Verifying card structure...');
-          const firstCard = newsfeedCards.first();
-
-          // Check for any heading or title and log their content
-          const headings = await firstCard.locator('h1, h2, h3, h4').all();
-          if (headings.length > 0) {
-            console.log('✅ Card headings found:');
-            for (const heading of headings) {
-              const text = await heading.textContent();
-              console.log(`   📝 "${text}"`);
-            }
-          }
-
-          // Check for any buttons
-          const hasButton = await firstCard.locator('button').count() > 0;
-          if (hasButton) {
-            console.log('✅ Card buttons found');
+          } catch (e) {
+            console.log('⚠️ Could not extract summary text from page');
           }
         }
-      } catch (e) {
-        console.log('⚠️ Could not count specific cards');
-      }
 
-      // If no cards found, look for any content
-      if (cardCount === 0) {
-        const anyContent = await page.locator('main').first().locator('div, article, section').count();
-        if (anyContent > 0) {
-          console.log(`✅ Found ${anyContent} content elements in main area`);
-          cardCount = anyContent;
-        } else {
-          throw new Error('No content found in main area after login');
+        // Check for success notification or toast (if applicable)
+        try {
+          await page.waitForSelector('text=/copied/i', { timeout: 2000 });
+          console.log('✅ Copy confirmation detected');
+        } catch {
+          console.log('⚠️ No copy confirmation toast found');
         }
+      } catch (error) {
+        throw new Error(`Failed to copy AI summary: ${error.message}`);
       }
 
-      // Success - all checks passed!
-      const currentUrl = page.url();
-      const isOnNewsfeeds = currentUrl.includes('newsfeeds');
-
-      if (isOnNewsfeeds) {
-        console.log(`🎉 Full login flow completed successfully! On newsfeeds page with ${cardCount} items.`);
-      } else {
-        console.log(`✅ Login successful! Currently on: ${currentUrl}`);
-        console.log(`📊 Found ${cardCount} content items on the page`);
-        console.log('⚠️ Note: Not on newsfeeds page, but login and content verification passed');
-      }
+      console.log('🎉 Generate AI Summary test completed successfully!');
 
     } catch (error) {
-      throw new Error(`Full login flow failed: ${error.message}`);
+      throw new Error(`Generate AI Summary test failed: ${error.message}`);
     } finally {
       await browser.close();
     }

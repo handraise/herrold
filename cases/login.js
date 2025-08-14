@@ -1,7 +1,7 @@
 const { chromium } = require('@playwright/test');
 
 module.exports = {
-  name: 'Handraise Load And Login',
+  name: 'Load And Login',
   description: 'Tests loading Handraise and performing login',
   test: async () => {
     const url = process.env.HANDRAISE_URL;
@@ -20,7 +20,7 @@ module.exports = {
 
     try {
       console.log('🚀 Starting Handraise login test...');
-      
+
       // Step 1: Navigate to the URL and wait for React app to load
       console.log('📄 Step 1: Navigating to:', url);
       await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -54,7 +54,7 @@ module.exports = {
         { timeout: 10000 }
       );
       console.log('✅ Email input field found');
-      
+
       await page.waitForSelector(
         'input[type="password"], input[name="password"]',
         { timeout: 5000 }
@@ -80,26 +80,26 @@ module.exports = {
 
       // Step 4: Find and click submit button
       console.log('🔘 Step 4: Submitting login form...');
-      
+
       // Try to find the submit button with more specific selectors
       const submitButton = page.locator(
         'button[type="submit"], button:has-text("Sign in"), button:has-text("Login"), input[type="submit"]'
       ).first();
-      
+
       // Wait for button to be visible and enabled
       await submitButton.waitFor({ state: 'visible', timeout: 5000 });
       console.log('✅ Submit button found and visible');
-      
+
       // Click the button
       await submitButton.click();
       console.log('✅ Login button clicked');
-      
+
       // Also try pressing Enter as a backup
       await page.keyboard.press('Enter');
       console.log('✅ Pressed Enter key as backup');
-      
+
       console.log('⏳ Waiting for login to complete...');
-      
+
       // Wait for navigation or content change after login
       try {
         await page.waitForLoadState('networkidle', { timeout: 10000 });
@@ -110,22 +110,22 @@ module.exports = {
 
       // Wait a bit for any redirects or React state updates
       await page.waitForTimeout(3000);
-      
+
       // Verify login was successful
       const currentUrl = page.url();
       console.log('📍 Current URL after login:', currentUrl);
-      
+
       // Check if we're still on the login page
       if (currentUrl.includes('auth/login')) {
         console.log('🔍 Still on login page, checking for error messages or login indicators...');
-        
+
         // Check for error messages
         const errorMessage = await page.locator('.error, .alert-danger, [role="alert"], .text-red-500, .text-danger').first();
         if (await errorMessage.isVisible({ timeout: 1000 }).catch(() => false)) {
           const errorText = await errorMessage.textContent();
           throw new Error(`Login failed with error: ${errorText}`);
         }
-        
+
         // Check for logged-in indicators (sometimes apps stay on login page but show different content)
         try {
           const loggedInIndicator = await page.locator('button:has-text("Logout"), button:has-text("Sign out"), [aria-label*="user"], [aria-label*="account"]').first();
@@ -141,7 +141,7 @@ module.exports = {
         console.log('✅ Successfully navigated away from login page');
         console.log('📍 Now on:', currentUrl);
       }
-      
+
       console.log('🎉 Login test completed successfully!');
 
     } catch (error) {
