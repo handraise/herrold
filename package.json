@@ -7,7 +7,14 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "node test-runner.js",
+    "test:simple": "node run-test-simple.js",
+    "test:debug": "HEADED_MODE=true node run-debug.js",
+    "test:debug:slow": "HEADED_MODE=true SLOW_MO=500 node run-debug.js",
+    "test:debug:devtools": "HEADED_MODE=true DEVTOOLS=true node run-debug.js",
+    "test:single": "node run-test-simple.js",
+    "test:artifacts": "node test-artifacts-demo.js"
   },
   "keywords": [],
   "author": "",

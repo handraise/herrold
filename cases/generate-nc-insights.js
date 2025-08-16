@@ -1,4 +1,4 @@
-const { chromium } = require('@playwright/test');
+const TestBrowserLauncher = require('../lib/test-browser-launcher');
 
 module.exports = {
   name: 'Narrative Cluster Insights',
@@ -15,8 +15,8 @@ module.exports = {
       throw new Error('HANDRAISE_USERNAME and HANDRAISE_PASSWORD must be set in .env file');
     }
 
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
+    const browser = await TestBrowserLauncher.launch();
+    const page = await TestBrowserLauncher.createPage(browser);
 
     try {
       console.log('🚀 Starting Generate AI Summary test...');
