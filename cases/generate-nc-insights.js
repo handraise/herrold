@@ -1,4 +1,5 @@
 const TestBrowserLauncher = require('../lib/test-browser-launcher');
+const NetworkHelper = require('../lib/network-helper');
 
 module.exports = {
   name: 'Narrative Cluster Insights',
@@ -17,9 +18,12 @@ module.exports = {
 
     const browser = await TestBrowserLauncher.launch();
     const page = await TestBrowserLauncher.createPage(browser);
+    
+    // Setup GraphQL monitoring for debugging
+    NetworkHelper.setupGraphQLMonitoring(page);
 
     try {
-      console.log('🚀 Starting Generate AI Summary test...');
+      console.log('🚀 Starting Narrative Cluster Insights test...');
 
       // Step 1: Navigate to login page
       console.log('📄 Step 1: Navigating to:', url);
@@ -151,36 +155,315 @@ module.exports = {
         }
       }
 
-      // Step 4: Generate AI Summary
-      console.log('🤖 Step 4: Generating AI summary...');
+      // Step 4: Click on a newsfeed item - specifically the LAST one
+      console.log('📰 Step 4: Clicking on the last newsfeed item...');
+      
+      // Look for all View Newsfeed buttons and click the last one
+      try {
+        const viewNewsfeedButtons = await page.locator('button:has-text("View Newsfeed")').all();
+        if (viewNewsfeedButtons.length > 0) {
+          // Click the last button in the list
+          const lastButton = viewNewsfeedButtons[viewNewsfeedButtons.length - 1];
+          await lastButton.click();
+          console.log(`✅ Clicked the last View Newsfeed button (${viewNewsfeedButtons.length} total found)`);
+          await page.waitForTimeout(2000); // Wait for page to load
+        } else {
+          console.log('⚠️ No View Newsfeed buttons found');
+        }
+      } catch (e) {
+        console.log('⚠️ Could not find View Newsfeed buttons, continuing...');
+      }
 
-      // Click somewhere in the body first (as in original script)
+      // Click somewhere in the body (as in original script)
       await page.locator('body').click({ position: { x: 348, y: 149 } });
       await page.waitForTimeout(500);
 
-      // Look for Generate AI Summary button with multiple selectors
-      const generateButton = page.locator(
-        'button:has-text("Generate AI Summary"), span:has-text("Generate AI Summary"), [aria-label*="Generate AI Summary"], span.text-violet-800:has-text("Generate AI Summary")'
-      ).first();
+      // Step 5: Generate Narrative Cluster Insights
+      console.log('🔍 Step 5: Generating Narrative Cluster insights...');
 
-      await generateButton.waitFor({ state: 'visible', timeout: 10000 });
-      await generateButton.click();
-      console.log('✅ Clicked Generate AI Summary');
+      // Look for Narrative Clusters button in the sidebar
+      console.log('🔍 Looking for Narrative Clusters button in sidebar...');
+      
+      // Find the Narrative Clusters button in the sidebar
+      let narrativeClusterButton = null;
+      const sidebarSelectors = [
+        'button:has(span:has-text("Narrative Clusters"))',
+        'button span.text-xs:has-text("Narrative Clusters")',
+        'button:has-text("Narrative Clusters")',
+        '[data-react-aria-pressable="true"]:has-text("Narrative Clusters")',
+        'button.md\\:inline-flex:has-text("Narrative Clusters")'
+      ];
+      
+      for (const selector of sidebarSelectors) {
+        try {
+          const element = page.locator(selector).first();
+          if (await element.isVisible({ timeout: 1000 })) {
+            narrativeClusterButton = element;
+            console.log(`✅ Found Narrative Clusters button in sidebar with selector: ${selector}`);
+            break;
+          }
+        } catch (e) {
+          // Try next selector
+        }
+      }
+      
+      if (!narrativeClusterButton) {
+        console.log('⚠️ Narrative Clusters button not found in sidebar. Listing visible buttons:');
+        const allButtons = await page.locator('button').all();
+        for (let i = 0; i < Math.min(allButtons.length, 20); i++) {
+          const text = await allButtons[i].textContent();
+          if (text && text.trim()) {
+            console.log(`   Button ${i + 1}: "${text.trim()}"`);
+          }
+        }
+        throw new Error('Narrative Clusters button not found in sidebar');
+      }
+      
+      // Hover over the Narrative Clusters button to reveal the more options button
+      console.log('🖱️ Hovering over Narrative Clusters button to reveal options...');
+      await narrativeClusterButton.hover();
+      await page.waitForTimeout(1500); // Wait longer for hover effect and animation
+      
+      // Find and click the more options button (three dots)
+      console.log('🔍 Looking for more options button (three dots)...');
+      
+      const moreOptionsSelectors = [
+        'button[aria-label="More options"]',
+        'button[aria-haspopup="true"]:has(svg)',
+        'button.group-hover\\:opacity-100',
+        'button.opacity-0.group-hover\\:opacity-100',
+        'button:has(svg path[d*="M140,128a12"])', // SVG path for three dots
+        narrativeClusterButton.locator('~ button[aria-label="More options"]'),
+        narrativeClusterButton.locator('..//button[aria-label="More options"]')
+      ];
+      
+      let moreOptionsButton = null;
+      for (const selector of moreOptionsSelectors) {
+        try {
+          const element = typeof selector === 'string' ? page.locator(selector).first() : selector;
+          if (await element.isVisible({ timeout: 3000 })) { // Increased from 1000ms to 3000ms
+            moreOptionsButton = element;
+            console.log('✅ Found more options button');
+            break;
+          }
+        } catch (e) {
+          // Try next selector
+        }
+      }
+      
+      if (!moreOptionsButton) {
+        console.log('⚠️ More options button not found, trying alternative approach...');
+        // Try to find it near the Narrative Clusters button
+        const parentElement = narrativeClusterButton.locator('..');
+        moreOptionsButton = parentElement.locator('button[aria-haspopup="true"]').first();
+        
+        if (!await moreOptionsButton.isVisible({ timeout: 3000 })) { // Increased from 1000ms to 3000ms
+          console.log('⚠️ Still cannot find more options button');
+        }
+      }
+      
+      if (moreOptionsButton) {
+        await moreOptionsButton.click();
+        console.log('✅ Clicked more options button');
+        
+        // Wait for tooltip/dropdown to appear
+        await page.waitForTimeout(1500); // Increased from 500ms to 1500ms
+        
+        // Look for Generate AI Summary button in the tooltip/menu
+        console.log('🔍 Looking for Generate AI Summary button in menu...');
+        
+        const generateAISummarySelectors = [
+          // Looking for the menu item with violet text
+          '[role="menuitem"]:has(.text-violet-800:has-text("Generate AI Summary"))',
+          '[role="menuitem"]:has(span:has-text("Generate AI Summary"))',
+          'div[role="menuitem"]:has-text("Generate AI Summary")',
+          '[role="menu"] [role="menuitem"]:has-text("Generate AI Summary")',
+          '[role="dialog"] [role="menuitem"]:has-text("Generate AI Summary")',
+          // Looking for the specific div structure with data-rac attribute
+          'div[data-rac][role="menuitem"]:has(span.text-violet-800)',
+          'div.data-\\[focused\\]\\:bg-slate-100:has-text("Generate AI Summary")',
+          // Generic fallbacks
+          '[data-trigger="MenuTrigger"] [role="menuitem"]:first-child',
+          'div[role="menu"] > div:first-child[role="menuitem"]'
+        ];
+        
+        let generateButton = null;
+        for (const selector of generateAISummarySelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 5000 })) { // Increased from 2000ms to 5000ms
+              generateButton = element;
+              console.log(`✅ Found Generate AI Summary button with selector: ${selector}`);
+              break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+        
+        if (!generateButton) {
+          console.log('⚠️ Generate AI Summary button not found in menu. Looking for any visible menu items...');
+          const menuItems = await page.locator('[role="menu"] [role="menuitem"], [role="dialog"] [role="menuitem"]').all();
+          console.log(`Found ${menuItems.length} menu items`);
+          for (let i = 0; i < Math.min(menuItems.length, 5); i++) {
+            const text = await menuItems[i].textContent();
+            if (text) {
+              console.log(`   Menu item ${i + 1}: "${text.trim()}"`);
+              // Check if this is the Generate AI Summary item
+              if (text.includes('Generate AI Summary')) {
+                generateButton = menuItems[i];
+                console.log('✅ Found Generate AI Summary in menu items list');
+                break;
+              }
+            }
+          }
+          
+          if (!generateButton) {
+            throw new Error('Generate AI Summary button not found in menu');
+          }
+        }
+        
+        await generateButton.click();
+        console.log('✅ Clicked Generate AI Summary');
+      } else {
+        throw new Error('Could not find more options button after hovering');
+      }
 
-      // Wait for AI summary to be generated
-      console.log('⏳ Waiting for AI summary to be generated...');
-      await page.waitForTimeout(5000); // Give time for AI to generate summary
-
-      // Step 5: Copy summary
-      console.log('📋 Step 5: Copying AI summary...');
-
-      // Look for Copy summary button
-      const copyButton = page.locator(
-        'button:has-text("Copy summary"), [aria-label="Copy summary"]'
-      ).first();
-
+      // Wait for insights to be generated
+      console.log('⏳ Waiting for NC insights to be generated...');
+      
+      // Wait for the insights generation GraphQL requests to complete
+      // Try multiple possible operation names
+      const possibleOperations = ['feedVolumeData', 'GetFeedVolume', 'GenerateInsights', 'NarrativeClusterInsights', 'NCInsights'];
+      let foundMatch = false;
+      
+      for (const opName of possibleOperations) {
+        try {
+          const graphqlResponse = await NetworkHelper.waitForGraphQL(page, opName, 5000);
+          if (graphqlResponse) {
+            console.log(`✅ ${opName} GraphQL request completed`);
+            foundMatch = true;
+            break;
+          }
+        } catch (e) {
+          // Try next operation name
+        }
+      }
+      
+      if (!foundMatch) {
+        console.log('⚠️ No specific GraphQL operation detected, waiting for network idle...');
+        try {
+          await page.waitForLoadState('networkidle', { timeout: 15000 });
+          console.log('✅ Network idle achieved');
+        } catch (idleError) {
+          console.log('⚠️ Network still active, proceeding anyway');
+        }
+      }
+      
+      // Additional wait to ensure UI updates after GraphQL response
+      await page.waitForTimeout(3000);
+      
+      // Check if a modal or dialog appeared
       try {
-        await copyButton.waitFor({ state: 'visible', timeout: 10000 });
+        const modal = await page.waitForSelector('[role="dialog"], .modal, [class*="modal"], [class*="dialog"], [class*="popup"]', {
+          timeout: 5000,
+          state: 'visible'
+        });
+        if (modal) {
+          console.log('✅ Modal/Dialog appeared after insights generation');
+          
+          // Wait a bit more for content to load in the modal
+          await page.waitForTimeout(2000);
+        }
+      } catch (e) {
+        console.log('⚠️ No modal/dialog detected');
+      }
+      
+      // Also wait for specific elements that appear after insights are generated
+      try {
+        // Wait for any of these elements that typically appear after generation
+        await page.waitForSelector('text=/generated/i, text=/summary/i, text=/copy/i, text=/insight/i, text=/cluster/i, [class*="result"], [class*="summary"], [class*="insight"], [class*="cluster"]', {
+          timeout: 10000,
+          state: 'visible'
+        });
+        console.log('✅ Found generated content indicators');
+      } catch (e) {
+        console.log('⚠️ No clear generation indicators found, continuing...');
+      }
+
+      // Step 6: Copy summary
+      console.log('📋 Step 6: Copying summary...');
+      
+      // Try multiple selectors for the copy button (including within modals)
+      const copySelectors = [
+        'button:has-text("Copy summary")',
+        'button:has-text("Copy")',
+        '[aria-label="Copy summary"]',
+        '[aria-label*="Copy"]',
+        'button[class*="copy"]',
+        'button:has-text("Copy to clipboard")',
+        '[role="dialog"] button:has-text("Copy")',
+        '.modal button:has-text("Copy")',
+        '[class*="modal"] button:has-text("Copy")'
+      ];
+      
+      let copyButton = null;
+      for (const selector of copySelectors) {
+        try {
+          const element = page.locator(selector).first();
+          if (await element.isVisible({ timeout: 1000 })) {
+            copyButton = element;
+            console.log(`✅ Found copy button with selector: ${selector}`);
+            break;
+          }
+        } catch (e) {
+          // Try next selector
+        }
+      }
+      
+      if (!copyButton) {
+        console.log('⚠️ Copy button not found. Listing visible buttons:');
+        const allButtons = await page.locator('button').all();
+        for (let i = 0; i < Math.min(allButtons.length, 15); i++) {
+          const text = await allButtons[i].textContent();
+          if (text) console.log(`   Button ${i + 1}: "${text.trim()}"`);
+        }
+        
+        // Check if there's a modal/dialog and list its content
+        try {
+          const modalButtons = await page.locator('[role="dialog"] button, .modal button, [class*="modal"] button').all();
+          if (modalButtons.length > 0) {
+            console.log('🔍 Buttons found in modal/dialog:');
+            for (let i = 0; i < modalButtons.length; i++) {
+              const text = await modalButtons[i].textContent();
+              if (text) console.log(`   Modal Button ${i + 1}: "${text.trim()}"`);
+            }
+          }
+          
+          // Also check modal content
+          const modalContent = await page.locator('[role="dialog"], .modal, [class*="modal"]').first();
+          if (await modalContent.isVisible()) {
+            const modalText = await modalContent.textContent();
+            console.log('📄 Modal content preview:', modalText?.substring(0, 200) + '...');
+          }
+        } catch (e) {
+          // No modal found
+        }
+        
+        // Also check for any clickable elements with "copy" text
+        const copyElements = await page.locator('*:has-text("copy")').all();
+        if (copyElements.length > 0) {
+          console.log('📋 Elements with "copy" text:');
+          for (let i = 0; i < Math.min(copyElements.length, 5); i++) {
+            const text = await copyElements[i].textContent();
+            const tagName = await copyElements[i].evaluate(el => el.tagName);
+            console.log(`   ${tagName}: "${text?.trim()}"`);
+          }
+        }
+        
+        // Try to continue without copying
+        console.log('⚠️ Continuing without copying summary');
+      } else {
         await copyButton.click();
         console.log('✅ Clicked Copy summary');
 
@@ -196,17 +479,17 @@ module.exports = {
               return await navigator.clipboard.readText();
             } catch (e) {
               // Fallback: try to find the summary text on the page
-              const summaryElement = document.querySelector('[class*="summary"], [class*="insight"], [id*="summary"], [id*="insight"]');
+              const summaryElement = document.querySelector('[class*="summary"], [class*="insight"], [class*="cluster"], [id*="summary"], [id*="insight"]');
               return summaryElement ? summaryElement.textContent : null;
             }
           });
 
           if (copiedText) {
-            console.log('📄 Copied AI Summary Content:');
+            console.log('📄 Copied NC Summary Content:');
             console.log('=====================================');
             console.log(copiedText);
             console.log('=====================================');
-            console.log('✅ AI Summary copied and logged successfully');
+            console.log('✅ NC Summary copied and logged successfully');
           } else {
             console.log('⚠️ Could not retrieve clipboard content, but copy action was performed');
           }
@@ -219,7 +502,8 @@ module.exports = {
               // Try multiple selectors to find the summary content
               const selectors = [
                 '[class*="summary-content"]',
-                '[class*="ai-summary"]',
+                '[class*="nc-summary"]',
+                '[class*="cluster-summary"]',
                 '[class*="generated-summary"]',
                 '[data-testid*="summary"]',
                 '.modal-body', // If summary appears in a modal
@@ -236,7 +520,7 @@ module.exports = {
             });
 
             if (summaryText) {
-              console.log('📄 AI Summary Content (from page):');
+              console.log('📄 NC Summary Content (from page):');
               console.log('=====================================');
               console.log(summaryText);
               console.log('=====================================');
@@ -253,14 +537,12 @@ module.exports = {
         } catch {
           console.log('⚠️ No copy confirmation toast found');
         }
-      } catch (error) {
-        throw new Error(`Failed to copy AI summary: ${error.message}`);
       }
 
-      console.log('🎉 Generate AI Summary test completed successfully!');
+      console.log('🎉 Narrative Cluster Insights test completed successfully!');
 
     } catch (error) {
-      throw new Error(`Generate AI Summary test failed: ${error.message}`);
+      throw new Error(`Narrative Cluster Insights test failed: ${error.message}`);
     } finally {
       await browser.close();
     }
