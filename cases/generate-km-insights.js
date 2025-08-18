@@ -156,51 +156,137 @@ module.exports = {
         }
       }
 
-      // Step 4: Click on a newsfeed item first
-      console.log('📰 Step 4: Clicking on a newsfeed item...');
+      // Step 4: Click on a newsfeed item - specifically the LAST one (same as NC)
+      console.log('📰 Step 4: Clicking on the last newsfeed item...');
       
-      // Look for View Newsfeed button and click it
+      // Look for all View Newsfeed buttons and click the last one
       try {
-        const viewNewsfeedButton = page.locator('button:has-text("View Newsfeed")').first();
-        if (await viewNewsfeedButton.isVisible({ timeout: 3000 })) {
-          await viewNewsfeedButton.click();
-          console.log('✅ Clicked View Newsfeed button');
+        const viewNewsfeedButtons = await page.locator('button:has-text("View Newsfeed")').all();
+        if (viewNewsfeedButtons.length > 0) {
+          // Click the last button in the list
+          const lastButton = viewNewsfeedButtons[viewNewsfeedButtons.length - 1];
+          await lastButton.click();
+          console.log(`✅ Clicked the last View Newsfeed button (${viewNewsfeedButtons.length} total found)`);
           await page.waitForTimeout(2000); // Wait for page to load
+        } else {
+          console.log('⚠️ No View Newsfeed buttons found');
         }
       } catch (e) {
-        console.log('⚠️ Could not find View Newsfeed button, continuing...');
+        console.log('⚠️ Could not find View Newsfeed buttons, continuing...');
       }
 
       // Click somewhere in the body (as in original script)
       await page.locator('body').click({ position: { x: 350, y: 223 } });
       await page.waitForTimeout(500);
 
-      // Step 5: Generate Insights
-      console.log('💡 Step 5: Generating insights...');
+      // Step 5: Generate Key Message Insights
+      console.log('💡 Step 5: Generating Key Message insights...');
 
-      // Look for Generate Insights button with multiple selectors
-      console.log('🔍 Looking for Generate Insights button...');
+      // Wait for sidebar to be fully loaded
+      console.log('⏳ Waiting for sidebar to load...');
+      try {
+        // Wait for sidebar menu items to appear
+        await page.waitForSelector('[role="menuitem"]', { timeout: 10000 });
+        console.log('✅ Sidebar menu items found');
+        
+        // Additional wait to ensure all items are rendered
+        await page.waitForTimeout(2000);
+      } catch (e) {
+        console.log('⚠️ Sidebar menu items not found, continuing anyway...');
+      }
+
+      // Look for a specific person filter item in the sidebar (like Mullenweg)
+      console.log('🔍 Looking for person filter item in sidebar...');
       
-      // Try multiple possible selectors for the insights button
-      const possibleSelectors = [
-        'button:has-text("Generate Insights")',
-        'button:has-text("Generate KM Insights")',
-        'button:has-text("Key Message")',
-        'span:has-text("Generate Insights")',
-        'span:has-text("Generate KM Insights")',
-        '[aria-label*="Generate Insights"]',
-        '[aria-label*="Key Message"]',
-        'button[class*="insight"]',
-        'button[class*="generate"]'
+      // Find a person filter item in the sidebar
+      let personFilterItem = null;
+      const personSelectors = [
+        // Looking for specific person items
+        '[role="menuitem"][aria-label*="Mullenweg filter item"]',
+        'div[role="menuitem"][aria-label*="Mullenweg"]',
+        'div.group:has(button[aria-label*="Filter by Mullenweg"])',
+        'div.group:has(span:has-text("Mullenweg"))',
+        // Generic person filter items
+        '[role="menuitem"][aria-label*="filter item"]',
+        'div[role="menuitem"][aria-label*="filter item"]',
+        // Look for group items with filter buttons
+        'div.group:has(button[aria-label*="Filter by"])',
+        'div.group:has(button[aria-label*="Select"][aria-label*="filter"])',
+        // Look for items with output elements (showing count)
+        'div.group:has(output[aria-label*="items"])',
+        // More specific selector based on structure
+        'div.group.flex.contain-layout:has(span.text-gray-600)',
+        'div.group:has(button[role="checkbox"]):has(output)'
       ];
       
-      let generateButton = null;
-      for (const selector of possibleSelectors) {
+      // Try multiple times with increasing timeouts
+      for (let attempt = 0; attempt < 3; attempt++) {
+        for (const selector of personSelectors) {
+          try {
+            const elements = await page.locator(selector).all();
+            // Get the first visible person filter item
+            for (const element of elements) {
+              if (await element.isVisible({ timeout: 1000 })) {
+                personFilterItem = element;
+                const text = await element.textContent();
+                console.log(`✅ Found person filter item: "${text?.trim()?.substring(0, 50)}..."`);
+                break;
+              }
+            }
+            if (personFilterItem) break;
+          } catch (e) {
+            // Try next selector
+          }
+        }
+        
+        if (personFilterItem) break;
+        
+        // Wait before next attempt
+        if (attempt < 2) {
+          console.log(`⚠️ Attempt ${attempt + 1} failed, waiting before retry...`);
+          await page.waitForTimeout(3000);
+        }
+      }
+      
+      if (!personFilterItem) {
+        console.log('⚠️ Person filter item not found in sidebar. Listing visible items:');
+        const menuItems = await page.locator('[role="menuitem"]').all();
+        for (let i = 0; i < Math.min(menuItems.length, 20); i++) {
+          const text = await menuItems[i].textContent();
+          if (text && text.trim()) {
+            console.log(`   Menu item ${i + 1}: "${text.trim()}"`);
+          }
+        }
+        throw new Error('Person filter item not found in sidebar');
+      }
+      
+      // Hover over the person filter item to reveal the more options button
+      console.log('🖱️ Hovering over person filter item to reveal options...');
+      await personFilterItem.hover();
+      await page.waitForTimeout(1500); // Wait longer for hover effect and animation
+      
+      // Find and click the more options button (three dots)
+      console.log('🔍 Looking for more options button (three dots)...');
+      
+      const moreOptionsSelectors = [
+        // Look for the button within the hovered person filter item
+        personFilterItem.locator('button[aria-label="More options"]'),
+        personFilterItem.locator('button[aria-haspopup="true"]:has(svg)'),
+        personFilterItem.locator('button.group-hover\\:opacity-100'),
+        personFilterItem.locator('button.opacity-0'),
+        // General selectors for visible more options button
+        'button[aria-label="More options"]:visible',
+        'button.group-hover\\:opacity-100:visible',
+        'button:has(svg path[d*="M140,128a12"])', // SVG path for three dots
+      ];
+      
+      let moreOptionsButton = null;
+      for (const selector of moreOptionsSelectors) {
         try {
-          const element = page.locator(selector).first();
-          if (await element.isVisible({ timeout: 1000 })) {
-            generateButton = element;
-            console.log(`✅ Found button with selector: ${selector}`);
+          const element = typeof selector === 'string' ? page.locator(selector).first() : selector;
+          if (await element.isVisible({ timeout: 3000 })) {
+            moreOptionsButton = element;
+            console.log('✅ Found more options button');
             break;
           }
         } catch (e) {
@@ -208,19 +294,81 @@ module.exports = {
         }
       }
       
-      if (!generateButton) {
-        // Log what buttons are visible on the page for debugging
-        console.log('⚠️ Generate Insights button not found. Listing visible buttons:');
-        const allButtons = await page.locator('button').all();
-        for (let i = 0; i < Math.min(allButtons.length, 10); i++) {
-          const text = await allButtons[i].textContent();
-          console.log(`   Button ${i + 1}: "${text?.trim()}"`);
+      if (!moreOptionsButton) {
+        console.log('⚠️ More options button not found, trying to find it as last button in item...');
+        // Try to find it as the last button in the person filter item
+        moreOptionsButton = personFilterItem.locator('button[aria-haspopup="true"]').last();
+        
+        if (!await moreOptionsButton.isVisible({ timeout: 3000 })) {
+          console.log('⚠️ Still cannot find more options button');
         }
-        throw new Error('Generate Insights button not found on page');
       }
       
-      await generateButton.click();
-      console.log('✅ Clicked Generate Insights');
+      if (moreOptionsButton) {
+        await moreOptionsButton.click();
+        console.log('✅ Clicked more options button');
+        
+        // Wait for tooltip/dropdown to appear
+        await page.waitForTimeout(1500);
+        
+        // Look for Generate AI Summary button in the menu
+        console.log('🔍 Looking for Generate AI Summary button in menu...');
+        
+        const generateAISummarySelectors = [
+          // Looking for the menu item with violet text
+          '[role="menuitem"]:has(.text-violet-800:has-text("Generate AI Summary"))',
+          '[role="menuitem"]:has(span:has-text("Generate AI Summary"))',
+          'div[role="menuitem"]:has-text("Generate AI Summary")',
+          '[role="menu"] [role="menuitem"]:has-text("Generate AI Summary")',
+          '[role="dialog"] [role="menuitem"]:has-text("Generate AI Summary")',
+          // Looking for the specific div structure
+          'div[data-rac][role="menuitem"]:has(span.text-violet-800)',
+          // Generic fallbacks
+          '[data-trigger="MenuTrigger"] [role="menuitem"]:first-child',
+          'div[role="menu"] > div:first-child[role="menuitem"]'
+        ];
+        
+        let generateButton = null;
+        for (const selector of generateAISummarySelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 5000 })) {
+              generateButton = element;
+              console.log(`✅ Found Generate AI Summary button with selector: ${selector}`);
+              break;
+            }
+          } catch (e) {
+            // Try next selector
+          }
+        }
+        
+        if (!generateButton) {
+          console.log('⚠️ Generate AI Summary button not found in menu. Looking for any visible menu items...');
+          const menuItems = await page.locator('[role="menu"] [role="menuitem"], [role="dialog"] [role="menuitem"]').all();
+          console.log(`Found ${menuItems.length} menu items`);
+          for (let i = 0; i < Math.min(menuItems.length, 5); i++) {
+            const text = await menuItems[i].textContent();
+            if (text) {
+              console.log(`   Menu item ${i + 1}: "${text.trim()}"`);
+              // Check if this is the Generate AI Summary item
+              if (text.includes('Generate AI Summary')) {
+                generateButton = menuItems[i];
+                console.log('✅ Found Generate AI Summary in menu items list');
+                break;
+              }
+            }
+          }
+          
+          if (!generateButton) {
+            throw new Error('Generate AI Summary button not found in menu');
+          }
+        }
+        
+        await generateButton.click();
+        console.log('✅ Clicked Generate AI Summary');
+      } else {
+        throw new Error('Could not find more options button after hovering');
+      }
 
       // Wait for insights to be generated
       console.log('⏳ Waiting for insights to be generated...');
