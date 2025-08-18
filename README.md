@@ -552,14 +552,3 @@ pnpm test:debug:slow "Test Name"
    SLOW_MO=1000 pnpm test:debug "Test Name"
    ```
 
-## License
-
-[Add your license here]
-
-## Contributing
-
-[Add contributing guidelines here]
-
-## Support
-
-For issues, questions, or suggestions, please [create an issue](link-to-issues) in the repository.
