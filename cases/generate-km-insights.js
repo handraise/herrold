@@ -262,7 +262,25 @@ module.exports = {
       
       // Hover over the person filter item to reveal the more options button
       console.log('🖱️ Hovering over person filter item to reveal options...');
-      await personFilterItem.hover();
+      
+      // Try different hover approaches to handle intercepted pointer events
+      try {
+        // First attempt: standard hover
+        await personFilterItem.hover({ timeout: 5000 });
+      } catch (e) {
+        console.log('⚠️ Standard hover failed, trying force hover...');
+        try {
+          // Second attempt: force hover
+          await personFilterItem.hover({ force: true, timeout: 5000 });
+        } catch (e2) {
+          console.log('⚠️ Force hover failed, trying to scroll and hover...');
+          // Third attempt: scroll into view first, then hover
+          await personFilterItem.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(500);
+          await personFilterItem.hover({ force: true });
+        }
+      }
+      
       await page.waitForTimeout(1500); // Wait longer for hover effect and animation
       
       // Find and click the more options button (three dots)
@@ -284,10 +302,21 @@ module.exports = {
       for (const selector of moreOptionsSelectors) {
         try {
           const element = typeof selector === 'string' ? page.locator(selector).first() : selector;
-          if (await element.isVisible({ timeout: 3000 })) {
-            moreOptionsButton = element;
-            console.log('✅ Found more options button');
-            break;
+          
+          // Check if element exists even if not visible
+          if (await element.count() > 0) {
+            // Try to make it visible by forcing it
+            try {
+              await element.waitFor({ state: 'visible', timeout: 3000 });
+              moreOptionsButton = element;
+              console.log('✅ Found more options button (visible)');
+              break;
+            } catch {
+              // Element exists but not visible, try to use it anyway
+              moreOptionsButton = element;
+              console.log('✅ Found more options button (may be hidden)');
+              break;
+            }
           }
         } catch (e) {
           // Try next selector
@@ -305,8 +334,14 @@ module.exports = {
       }
       
       if (moreOptionsButton) {
-        await moreOptionsButton.click();
-        console.log('✅ Clicked more options button');
+        try {
+          await moreOptionsButton.click({ timeout: 3000 });
+          console.log('✅ Clicked more options button');
+        } catch (e) {
+          console.log('⚠️ Standard click failed, trying force click...');
+          await moreOptionsButton.click({ force: true });
+          console.log('✅ Force clicked more options button');
+        }
         
         // Wait for tooltip/dropdown to appear
         await page.waitForTimeout(1500);
