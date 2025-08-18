@@ -38,7 +38,7 @@ A comprehensive test automation framework built with Playwright for testing the 
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone git@github.com:handraise/herrold.git
 cd herrold
 ```
 
@@ -100,7 +100,7 @@ DEBUG_TIMEOUT=120000
 ### Required Environment Variables
 
 - `HANDRAISE_URL` - The URL of the Handraise application to test
-- `HANDRAISE_USERNAME` - Username/email for authentication
+- `HANDRAISE_USERNAME` - Email for authentication
 - `HANDRAISE_PASSWORD` - Password for authentication
 
 ### Optional Environment Variables
@@ -168,7 +168,6 @@ Features:
 - Run individual tests or all tests
 - Real-time test progress updates
 - View test results and duration
-- Clean, responsive interface
 
 ### Command Line
 
