@@ -366,55 +366,219 @@ rm -rf test-artifacts/*
 
 ## Notification System
 
+Herrold supports both email and webhook notifications for test results. Both notification types support multiple configuration formats for maximum flexibility.
+
 ### Email Notifications
+
+#### Environment Configuration
 
 Configure SMTP settings in `.env`:
 
 ```env
+# SMTP Server Settings (Required for email)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
+SMTP_SECURE=false                                    # true for port 465, false for port 587
 SMTP_USER=your-email@gmail.com
-SMTP_PASS=app-specific-password
-EMAIL_FROM=your-email@gmail.com
-EMAIL_TO=recipient@example.com
+SMTP_PASS=your-app-password                         # For Gmail, use App Password, not regular password
+
+# Email Settings
+EMAIL_FROM="Test Runner <noreply@example.com>"      # Sender address
+EMAIL_TO=recipient@example.com                      # Default recipient(s) - comma separated for multiple
 ```
 
-Email notifications include:
-- Test suite summary
-- Individual test results
-- Failure details
-- Execution time
-- Timestamp
+#### Gmail Setup
+1. Enable 2-factor authentication on your Google account
+2. Generate an App Password: Google Account → Security → 2-Step Verification → App passwords
+3. Use the generated password as `SMTP_PASS`
 
-### Webhook Notifications
+#### Configuration Formats
+
+Email notifications can be configured in multiple ways when calling the API:
+
+```javascript
+// 1. Boolean true - uses EMAIL_TO from environment
+{ "email": true }
+
+// 2. String - single email address
+{ "email": "user@example.com" }
+
+// 3. Object with enabled only - uses EMAIL_TO from environment
+{ "email": { "enabled": true } }
+
+// 4. Object with single recipient
+{ "email": { "enabled": true, "to": "user@example.com" } }
+
+// 5. Object with multiple recipients
+{ "email": { "enabled": true, "to": ["user1@example.com", "user2@example.com"] } }
+```
+
+#### API Examples
+
+```bash
+# Use default EMAIL_TO from environment
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"email": {"enabled": true}}}'
+
+# Send to specific recipients
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"email": {"enabled": true, "to": ["dev@example.com", "qa@example.com"]}}}'
+
+# Simple string format
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"email": "manager@example.com"}}'
+```
+
+#### Email Content
+Email notifications include:
+- Test suite summary with pass/fail counts
+- Individual test results with status
+- Detailed error messages for failed tests
+- Execution time and timestamps
+- HTML and plain text versions
+
+### Webhook Notifications (Slack/Custom)
+
+#### Environment Configuration
 
 Configure webhook in `.env`:
 
 ```env
-WEBHOOK_URL=https://your-endpoint.com/webhook
-WEBHOOK_SECRET=your-secret
+# Webhook URL (Slack or custom endpoint)
+WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX
+# or
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXX
 ```
 
-Webhook payload:
+#### Slack Webhook Setup
+1. Go to https://api.slack.com/apps
+2. Create a new app or select existing
+3. Go to "Incoming Webhooks" and activate
+4. Add new webhook to workspace
+5. Copy the webhook URL to your `.env` file
+
+#### Configuration Formats
+
+Webhook notifications support multiple configuration formats:
+
+```javascript
+// 1. Boolean true - uses WEBHOOK_URL from environment
+{ "webhook": true }
+
+// 2. String - direct webhook URL
+{ "webhook": "https://hooks.slack.com/services/..." }
+
+// 3. Object with enabled only - uses WEBHOOK_URL from environment
+{ "webhook": { "enabled": true } }
+
+// 4. Object with URL
+{ "webhook": { "enabled": true, "url": "https://hooks.slack.com/services/..." } }
+```
+
+#### API Examples
+
+```bash
+# Use default WEBHOOK_URL from environment
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"webhook": {"enabled": true}}}'
+
+# Provide webhook URL directly
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"webhook": "https://hooks.slack.com/services/..."}}'
+```
+
+#### Slack Message Format
+The webhook sends a formatted Slack message with:
+- Header with pass/fail status emoji
+- Summary section with:
+  - Total Tests
+  - Duration
+  - Passed count ✅
+  - Failed count ❌
+- Job metadata (ID, environment, timestamp)
+- Detailed failed test information (if any)
+- Success celebration message (if all pass) 🎉
+
+#### Generic Webhook Payload
+
+For non-Slack webhooks, the payload format is:
+
 ```json
 {
   "jobId": "uuid",
   "timestamp": "ISO-8601",
+  "environment": "development",
   "summary": {
     "total": 3,
     "passed": 2,
     "failed": 1,
-    "duration": 45000
+    "duration": 45000,
+    "success": false
   },
   "results": [
     {
       "name": "Test Name",
       "status": "passed",
-      "duration": 15000
+      "duration": 15000,
+      "error": null
     }
   ]
 }
 ```
+
+### Using Both Notifications
+
+You can enable both email and webhook notifications simultaneously:
+
+```bash
+# Use environment defaults for both
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{"notifications": {"email": true, "webhook": true}}'
+
+# Mixed configuration
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notifications": {
+      "email": {
+        "enabled": true,
+        "to": ["team@example.com"]
+      },
+      "webhook": "https://hooks.slack.com/services/..."
+    }
+  }'
+
+# Specify test suite to run with notifications
+curl -X POST http://localhost:3005/api/trigger-suite \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tests": ["Key Message Insights", "Narrative Cluster Insights"],
+    "notifications": {
+      "email": "qa-team@example.com",
+      "webhook": true
+    }
+  }'
+```
+
+### Troubleshooting Notifications
+
+#### Email Issues
+- **"Email service not configured"**: Check SMTP_HOST, SMTP_USER, and SMTP_PASS are set
+- **"No recipients defined"**: Ensure EMAIL_TO is set or provide recipients in the API call
+- **Gmail authentication failed**: Use App Password, not regular password
+- **Connection timeout**: Check firewall settings for SMTP ports (587/465)
+
+#### Webhook Issues
+- **404 Not Found**: Verify the webhook URL is correct and active
+- **"Invalid webhook URL format"**: Ensure URL starts with http:// or https://
+- **No notification sent**: Check server logs for detailed error messages
+- **Slack "no_team" error**: The webhook URL might be expired or invalid
 
 ## Development
 
