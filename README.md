@@ -392,6 +392,45 @@ EMAIL_TO=recipient@example.com                      # Default recipient(s) - com
 2. Generate an App Password: Google Account → Security → 2-Step Verification → App passwords
 3. Use the generated password as `SMTP_PASS`
 
+**Important Gmail Limitation**: Gmail will always show emails as sent from your authenticated Gmail account (SMTP_USER) for security reasons. The EMAIL_FROM setting will:
+- Set the display name (e.g., "Herrold Test Runner")
+- Set the reply-to address (where replies will be directed)
+- But the actual "from" address will remain your Gmail account
+
+To use a fully custom sender address, consider:
+- Using your organization's SMTP server (e.g., handraise.com mail server)
+- Using a transactional email service (SendGrid, Mailgun, AWS SES, etc.)
+- Setting up Google Workspace with domain authentication
+
+#### Alternative SMTP Providers
+
+**SendGrid:**
+```env
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASS=your-sendgrid-api-key
+EMAIL_FROM="Herrold Test Runner <noreply@handraise.com>"
+```
+
+**Office 365:**
+```env
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USER=your-email@company.com
+SMTP_PASS=your-password
+EMAIL_FROM="Herrold Test Runner <noreply@company.com>"
+```
+
+**AWS SES:**
+```env
+SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=your-ses-smtp-username
+SMTP_PASS=your-ses-smtp-password
+EMAIL_FROM="Herrold Test Runner <noreply@handraise.com>"
+```
+
 #### Configuration Formats
 
 Email notifications can be configured in multiple ways when calling the API:
