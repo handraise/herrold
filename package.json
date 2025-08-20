@@ -14,7 +14,12 @@
     "test:debug:slow": "HEADED_MODE=true SLOW_MO=500 node run-debug.js",
     "test:debug:devtools": "HEADED_MODE=true DEVTOOLS=true node run-debug.js",
     "test:single": "node run-test-simple.js",
-    "test:artifacts": "node test-artifacts-demo.js"
+    "docker:build": "docker build -t herrold:latest .",
+    "docker:run": "docker run -p 3005:3005 --env-file .env herrold:latest",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:rebuild": "docker-compose build --no-cache && docker-compose up -d"
   },
   "keywords": [],
   "author": "",
